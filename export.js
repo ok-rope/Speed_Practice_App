@@ -11,7 +11,60 @@ function _scheduleCountdownTone(ctx, time, freq) {
   osc.stop(time + 0.20);
 }
 
-async function exportMP3(state) {
+// ── Real-time recording via tab audio capture (Chrome 107+) ──────────────────
+// Captures everything: metronome, beeps, and all TTS voice announcements.
+async function _exportRealtime(state) {
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    preferCurrentTab: true,
+    audio: true,
+    video: { width: 1, height: 1 },  // required by most browsers; stopped immediately
+  });
+  stream.getVideoTracks().forEach(t => t.stop());
+
+  if (!stream.getAudioTracks().length) {
+    stream.getTracks().forEach(t => t.stop());
+    const e = new Error('タブの音声が取得できませんでした');
+    e.name = 'NoAudio';
+    throw e;
+  }
+
+  const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg']
+    .find(t => MediaRecorder.isTypeSupported(t)) || 'audio/webm';
+  const recorder = new MediaRecorder(stream, { mimeType });
+  const chunks   = [];
+  recorder.ondataavailable = e => e.data?.size > 0 && chunks.push(e.data);
+
+  return new Promise((resolve, reject) => {
+    recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const ext  = mimeType.includes('ogg') ? 'ogg' : 'webm';
+      const blob = new Blob(chunks, { type: mimeType });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = _filename(state).replace('.mp3', `.${ext}`);
+      a.click();
+      URL.revokeObjectURL(url);
+      resolve();
+    };
+    recorder.onerror = e => reject(e.error || new Error('録音エラー'));
+
+    recorder.start(200);
+
+    // Wait for MediaRecorder to be fully started, then begin playback
+    setTimeout(() => {
+      window.__exportDoneHook = () => {
+        window.__exportDoneHook = null;
+        // Extra time to capture the end beep before stopping
+        setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 700);
+      };
+      onPlay();
+    }, 300);
+  });
+}
+
+// ── Offline MP3 rendering (no TTS voice; fallback for non-Chrome) ─────────────
+async function _exportOffline(state) {
   const SR    = 44100;
   const { toggles, countdownSec = 3 } = state;
   const cdSec = (toggles.countdown && countdownSec > 0)
@@ -19,7 +72,7 @@ async function exportMP3(state) {
   const totalSamples = Math.ceil((cdSec + state.totalSec + 0.5) * SR);
   const offCtx = new OfflineAudioContext(1, totalSamples, SR);
 
-  // Countdown tones: 660Hz for each count, 880Hz for the final "1"
+  // Countdown tones substitute for TTS in the offline path
   if (cdSec > 0 && toggles.countdown) {
     const count = Math.round(countdownSec);
     for (let i = count; i >= 1; i--) {
@@ -42,7 +95,6 @@ async function exportMP3(state) {
   const encoder  = new lamejs.Mp3Encoder(1, SR, 128);
   const BLOCK    = 1152;
   const mp3Parts = [];
-
   for (let i = 0; i < pcm.length; i += BLOCK) {
     const chunk   = pcm.subarray(i, i + BLOCK);
     const encoded = encoder.encodeBuffer(chunk);
@@ -60,11 +112,26 @@ async function exportMP3(state) {
   URL.revokeObjectURL(url);
 }
 
+// ── Entry point ───────────────────────────────────────────────────────────────
+async function exportMP3(state) {
+  // Prefer real-time capture (includes TTS); fall back to offline MP3
+  if (navigator.mediaDevices?.getDisplayMedia) {
+    try {
+      return await _exportRealtime(state);
+    } catch (err) {
+      // User cancelled → propagate so onExport can show a friendly message
+      if (err.name === 'NotAllowedError' || err.name === 'AbortError') throw err;
+      // NoAudio or unsupported config → fall through to offline
+    }
+  }
+  return _exportOffline(state);
+}
+
+// ── Offline beat scheduler ────────────────────────────────────────────────────
 function _renderBeatsOffline(ctx, state, cdSec) {
   const { segments, totalSec, clickSound, toggles } = state;
   const maxT = ctx.length / ctx.sampleRate;
 
-  // Beats start at cdSec in the offline context
   let t         = cdSec;
   let segIdx    = 0;
   let beatCount = 0;
@@ -125,7 +192,6 @@ function _renderBeatsOffline(ctx, state, cdSec) {
 function _filename(state) {
   const jumps  = state.segments.map(s => s.jumps);
   const raw    = (state.announcementText || '').trim();
-  // Allow alphanumeric, spaces, and Japanese characters; sanitize the rest
   const title  = raw
     .replace(/[^\w\s぀-ヿ一-鿿]/g, '')
     .replace(/\s+/g, '_')

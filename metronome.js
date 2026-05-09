@@ -104,18 +104,27 @@ class MetronomeEngine {
     this._beatCount    = 0;
     this._endScheduled = false;
 
-    const { toggles, countdownSec = 3 } = state;
-    // Countdown is purely speech-based (handled by app.js).
-    // We only reserve the time here so startAudioTime is correct.
-    const cdSec = (toggles.countdown && countdownSec > 0)
-                  ? Math.max(0, Math.round(countdownSec)) : 0;
+    // Read currentTime only after the context is confirmed running.
+    // On iOS the context can still be 'suspended' here even after _ensureCtx(),
+    // because resume() is async — so we defer scheduling until it resolves.
+    const doSchedule = () => {
+      const { toggles, countdownSec = 3 } = state;
+      const cdSec = (toggles.countdown && countdownSec > 0)
+                    ? Math.max(0, Math.round(countdownSec)) : 0;
 
-    this.startAudioTime = this.audioCtx.currentTime + 0.1 + cdSec;
-    this._segStartTime  = this.startAudioTime;
-    this.nextBeatTime   = this.startAudioTime;
+      this.startAudioTime = this.audioCtx.currentTime + 0.1 + cdSec;
+      this._segStartTime  = this.startAudioTime;
+      this.nextBeatTime   = this.startAudioTime;
 
-    this._scheduleLoop();
-    this.schedulerTimer = setInterval(() => this._scheduleLoop(), 25);
+      this._scheduleLoop();
+      this.schedulerTimer = setInterval(() => this._scheduleLoop(), 25);
+    };
+
+    if (this.audioCtx.state === 'running') {
+      doSchedule();
+    } else {
+      this.audioCtx.resume().then(doSchedule);
+    }
   }
 
   stop() {

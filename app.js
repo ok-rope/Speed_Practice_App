@@ -431,12 +431,34 @@ function renderTimeline() {
 }
 
 // ── Playback controls ──────────────────────────────────────────────────────────
-let _awaitingStart = false;
+let _awaitingStart  = false;
+let _iosUnlocked    = false;
+
+// Plays a silent <audio> element so iOS sets AudioSession to 'playback' category,
+// which makes Web Audio bypass the hardware silent/ringer switch.
+function _unlockIOSAudioSession() {
+  if (_iosUnlocked) return;
+  _iosUnlocked = true;
+  try {
+    // Minimal valid WAV: 1 silent sample at 22050 Hz mono 16-bit
+    const b = new Uint8Array([
+      0x52,0x49,0x46,0x46,0x26,0x00,0x00,0x00,0x57,0x41,0x56,0x45,
+      0x66,0x6D,0x74,0x20,0x10,0x00,0x00,0x00,0x01,0x00,0x01,0x00,
+      0x22,0x56,0x00,0x00,0x44,0xAC,0x00,0x00,0x02,0x00,0x10,0x00,
+      0x64,0x61,0x74,0x61,0x02,0x00,0x00,0x00,0x00,0x00,
+    ]);
+    const url = URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+    const a   = new Audio(url);
+    a.play().then(() => URL.revokeObjectURL(url)).catch(() => URL.revokeObjectURL(url));
+  } catch (_) {}
+}
 
 function onPlay() {
   if (appState.playState === 'playing') return;
-  // Must call _ensureCtx() first, synchronously within the user gesture,
-  // so iOS unlocks the audio hardware before any async work starts.
+  // Both of these must run synchronously within the user gesture:
+  // 1) <audio> playback → changes iOS AudioSession to 'playback' (bypasses silent switch)
+  // 2) AudioContext creation/resume → unlocks Web Audio on iOS/Android
+  _unlockIOSAudioSession();
   metronome._ensureCtx();
   warmupSpeech();
   appState.playState = 'playing';
@@ -488,25 +510,47 @@ function onPlayEnd() {
   document.getElementById('playInfo').hidden  = true;
   document.getElementById('playBtn').disabled = false;
   document.getElementById('stopBtn').disabled = true;
+
+  if (typeof window.__exportDoneHook === 'function') {
+    window.__exportDoneHook();
+  }
 }
 
 // ── Export ─────────────────────────────────────────────────────────────────────
 async function onExport() {
+  if (appState.playState === 'playing') {
+    const status = document.getElementById('exportStatus');
+    status.hidden = false;
+    status.textContent = '再生中はエクスポートできません。停止してから実行してください。';
+    setTimeout(() => { status.hidden = true; }, 3000);
+    return;
+  }
+
   const btn    = document.getElementById('exportBtn');
   const status = document.getElementById('exportStatus');
-  btn.disabled   = true;
-  status.hidden  = false;
-  status.textContent = '音声を生成中...';
+  btn.disabled  = true;
+  status.hidden = false;
+
+  const canCapture = !!navigator.mediaDevices?.getDisplayMedia;
+  status.textContent = canCapture
+    ? 'ブラウザの共有ダイアログで「このタブ」を選択してください...'
+    : '音声を生成中...';
 
   try {
     await exportMP3(appState);
-    status.textContent = 'ダウンロードを開始しました。';
+    status.textContent = canCapture
+      ? '録音が完了しました。ダウンロードが始まります。'
+      : 'ダウンロードを開始しました。（音声読み上げは含まれません）';
   } catch (e) {
-    console.error(e);
-    status.textContent = 'エラー: ' + e.message;
+    if (e.name === 'NotAllowedError' || e.name === 'AbortError') {
+      status.textContent = '録音がキャンセルされました。';
+    } else {
+      console.error(e);
+      status.textContent = 'エラー: ' + e.message;
+    }
   } finally {
     btn.disabled = false;
-    setTimeout(() => { status.hidden = true; }, 4000);
+    setTimeout(() => { status.hidden = true; }, 5000);
   }
 }
 
