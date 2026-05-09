@@ -1,11 +1,32 @@
+function _scheduleCountdownTone(ctx, time, freq) {
+  const osc  = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  gain.gain.setValueAtTime(0.65, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+  osc.start(time);
+  osc.stop(time + 0.20);
+}
+
 async function exportMP3(state) {
   const SR    = 44100;
   const { toggles, countdownSec = 3 } = state;
-  // Countdown is silence in MP3 (speech synthesis can't be embedded)
   const cdSec = (toggles.countdown && countdownSec > 0)
                 ? Math.max(0, Math.round(countdownSec)) : 0;
   const totalSamples = Math.ceil((cdSec + state.totalSec + 0.5) * SR);
   const offCtx = new OfflineAudioContext(1, totalSamples, SR);
+
+  // Countdown tones: 660Hz for each count, 880Hz for the final "1"
+  if (cdSec > 0 && toggles.countdown) {
+    const count = Math.round(countdownSec);
+    for (let i = count; i >= 1; i--) {
+      const t = cdSec - i;
+      if (t >= 0) _scheduleCountdownTone(offCtx, t, i === 1 ? 880 : 660);
+    }
+  }
 
   _renderBeatsOffline(offCtx, state, cdSec);
 
@@ -102,6 +123,13 @@ function _renderBeatsOffline(ctx, state, cdSec) {
 }
 
 function _filename(state) {
-  const jumps = state.segments.map(s => s.jumps);
-  return `metronome_${state.totalSec}sec_${Math.min(...jumps)}-${Math.max(...jumps)}.mp3`;
+  const jumps  = state.segments.map(s => s.jumps);
+  const raw    = (state.announcementText || '').trim();
+  // Allow alphanumeric, spaces, and Japanese characters; sanitize the rest
+  const title  = raw
+    .replace(/[^\w\s぀-ヿ一-鿿]/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 24);
+  const prefix = title ? title + '_' : '';
+  return `${prefix}${state.totalSec}sec_${Math.min(...jumps)}-${Math.max(...jumps)}.mp3`;
 }

@@ -435,6 +435,9 @@ let _awaitingStart = false;
 
 function onPlay() {
   if (appState.playState === 'playing') return;
+  // Must call _ensureCtx() first, synchronously within the user gesture,
+  // so iOS unlocks the audio hardware before any async work starts.
+  metronome._ensureCtx();
   warmupSpeech();
   appState.playState = 'playing';
   _awaitingStart = true;
@@ -571,4 +574,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Redraw canvas on window resize
   window.addEventListener('resize', () => renderCanvas());
+
+  // Resume AudioContext when app returns from background (required on iOS)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && metronome.audioCtx) {
+      metronome.audioCtx.resume();
+    }
+  });
 });

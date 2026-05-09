@@ -84,6 +84,15 @@ class MetronomeEngine {
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
     if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+    // Play a silent 1-sample buffer to unlock audio hardware on iOS.
+    // Must be called synchronously within a user gesture.
+    try {
+      const buf = this.audioCtx.createBuffer(1, 1, this.audioCtx.sampleRate);
+      const src = this.audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.audioCtx.destination);
+      src.start(0);
+    } catch (_) {}
   }
 
   start(state, onFinish) {
