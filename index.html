@@ -31,25 +31,6 @@
         <button id="addSegBtn" class="btn btn-add">＋ セグメント追加</button>
       </section>
 
-      <!-- タイムライン（グラフ統合） -->
-      <section class="card">
-        <h2 class="card-title">タイムライン</h2>
-        <div class="timeline-wrap">
-          <!-- Canvas overlays on the colored bar -->
-          <div id="timelineBar" class="timeline-bar">
-            <div id="timelineSegs" class="timeline-segs"></div>
-            <canvas id="timelineCanvas" class="timeline-canvas-overlay"></canvas>
-            <div id="playhead" class="playhead" hidden></div>
-          </div>
-          <div id="timelineLabels" class="timeline-labels"></div>
-        </div>
-        <div id="playInfo" class="play-info" hidden>
-          <span id="infoJumps"></span>
-          <span id="infoRemain"></span>
-          <span id="infoSeg"></span>
-        </div>
-      </section>
-
       <!-- アナウンス設定 -->
       <section class="card">
         <h2 class="card-title">アナウンス設定</h2>
@@ -183,6 +164,25 @@
             <input type="radio" name="clickSound" value="simple">
             <span>シンプル</span>
           </label>
+        </div>
+      </section>
+
+      <!-- タイムライン（グラフ統合） -->
+      <section class="card">
+        <h2 class="card-title">タイムライン</h2>
+        <div class="timeline-wrap">
+          <!-- Canvas overlays on the colored bar -->
+          <div id="timelineBar" class="timeline-bar">
+            <div id="timelineSegs" class="timeline-segs"></div>
+            <canvas id="timelineCanvas" class="timeline-canvas-overlay"></canvas>
+            <div id="playhead" class="playhead" hidden></div>
+          </div>
+          <div id="timelineLabels" class="timeline-labels"></div>
+        </div>
+        <div id="playInfo" class="play-info" hidden>
+          <span id="infoJumps"></span>
+          <span id="infoRemain"></span>
+          <span id="infoSeg"></span>
         </div>
       </section>
 
