@@ -31,147 +31,10 @@
         <button id="addSegBtn" class="btn btn-add">＋ セグメント追加</button>
       </section>
 
-      <!-- アナウンス設定 -->
-      <section class="card">
-        <h2 class="card-title">アナウンス設定</h2>
-
-        <div class="setting-label-row">
-          <span class="setting-label">開始アナウンス</span>
-          <span class="setting-hint">再生前に読み上げるテキスト</span>
-        </div>
-        <textarea id="announcementText" class="announcement-input"
-                  placeholder="例: Single Rope Speed Sprint 30 seconds" rows="2"></textarea>
-
-        <div class="setting-divider"></div>
-
-        <div class="setting-row">
-          <label class="setting-label" for="countdownSec">カウントダウン</label>
-          <div class="input-row">
-            <input id="countdownSec" type="number" class="input-number input-sm"
-                   value="3" min="0" max="10" step="1" inputmode="numeric">
-            <span class="unit">秒</span>
-          </div>
-        </div>
-        <p class="setting-hint" style="margin-top:4px">例：3秒 → Three, Two, One, BEEP</p>
-
-        <div class="setting-divider"></div>
-
-        <div class="setting-row">
-          <span class="setting-label">時間アナウンス</span>
-          <button id="addTimeAnnBtn" class="btn-sm-primary">＋ 追加</button>
-        </div>
-        <div id="timeAnnList" class="time-ann-list"></div>
-      </section>
-
-      <!-- 機能 ON / OFF -->
-      <section class="card">
-        <h2 class="card-title">機能 ON / OFF</h2>
-        <div class="toggle-list">
-
-          <label class="toggle-row" for="togAnnouncement">
-            <div class="toggle-info">
-              <span class="toggle-name">開始アナウンス読み上げ</span>
-              <span class="toggle-desc">カウントダウン前にテキストを読み上げ</span>
-            </div>
-            <div class="toggle-wrap">
-              <input type="checkbox" id="togAnnouncement" checked>
-              <span class="tog-slider"></span>
-            </div>
-          </label>
-
-          <label class="toggle-row" for="togCountdown">
-            <div class="toggle-info">
-              <span class="toggle-name">カウントダウン音声</span>
-              <span class="toggle-desc">Three, Two, One の読み上げ</span>
-            </div>
-            <div class="toggle-wrap">
-              <input type="checkbox" id="togCountdown" checked>
-              <span class="tog-slider"></span>
-            </div>
-          </label>
-
-          <label class="toggle-row" for="togBeepStart">
-            <div class="toggle-info">
-              <span class="toggle-name">スタート BEEP</span>
-              <span class="toggle-desc">最初のビートの合図音</span>
-            </div>
-            <div class="toggle-wrap">
-              <input type="checkbox" id="togBeepStart" checked>
-              <span class="tog-slider"></span>
-            </div>
-          </label>
-
-          <label class="toggle-row" for="togBeepTransition">
-            <div class="toggle-info">
-              <span class="toggle-name">切替 BEEP</span>
-              <span class="toggle-desc">セグメント切り替わりの合図音</span>
-            </div>
-            <div class="toggle-wrap">
-              <input type="checkbox" id="togBeepTransition" checked>
-              <span class="tog-slider"></span>
-            </div>
-          </label>
-
-          <label class="toggle-row" for="togBeepEnd">
-            <div class="toggle-info">
-              <span class="toggle-name">終了 BEEP</span>
-              <span class="toggle-desc">メトロノーム終了の合図音</span>
-            </div>
-            <div class="toggle-wrap">
-              <input type="checkbox" id="togBeepEnd" checked>
-              <span class="tog-slider"></span>
-            </div>
-          </label>
-
-          <label class="toggle-row" for="togVoiceCount">
-            <div class="toggle-info">
-              <span class="toggle-name">回数アナウンス</span>
-              <span class="toggle-desc">スタート・切替時に回数を英語で読上げ</span>
-            </div>
-            <div class="toggle-wrap">
-              <input type="checkbox" id="togVoiceCount" checked>
-              <span class="tog-slider"></span>
-            </div>
-          </label>
-
-          <label class="toggle-row" for="togVoiceTime">
-            <div class="toggle-info">
-              <span class="toggle-name">時間アナウンス</span>
-              <span class="toggle-desc">指定した時間を英語で読上げ</span>
-            </div>
-            <div class="toggle-wrap">
-              <input type="checkbox" id="togVoiceTime" checked>
-              <span class="tog-slider"></span>
-            </div>
-          </label>
-
-        </div>
-      </section>
-
-      <!-- クリック音 -->
-      <section class="card">
-        <h2 class="card-title">クリック音</h2>
-        <div class="radio-group">
-          <label class="radio-label">
-            <input type="radio" name="clickSound" value="electronic" checked>
-            <span>電子音</span>
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="clickSound" value="marimba">
-            <span>木琴風</span>
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="clickSound" value="simple">
-            <span>シンプル</span>
-          </label>
-        </div>
-      </section>
-
-      <!-- タイムライン（グラフ統合） -->
+      <!-- タイムライン -->
       <section class="card">
         <h2 class="card-title">タイムライン</h2>
         <div class="timeline-wrap">
-          <!-- Canvas overlays on the colored bar -->
           <div id="timelineBar" class="timeline-bar">
             <div id="timelineSegs" class="timeline-segs"></div>
             <canvas id="timelineCanvas" class="timeline-canvas-overlay"></canvas>
@@ -195,6 +58,144 @@
         <button id="exportBtn" class="btn btn-export">⬇ MP3ダウンロード</button>
         <div id="exportStatus" class="export-status" hidden></div>
       </section>
+
+      <!-- オプション（アコーディオン） -->
+      <details class="card options-accordion">
+        <summary class="options-summary">
+          <span class="options-summary-label">オプション</span>
+          <span class="options-arrow">›</span>
+        </summary>
+        <div class="options-body">
+
+          <!-- アナウンス設定 -->
+          <div class="option-section">
+            <h3 class="option-section-title">アナウンス設定</h3>
+            <div class="setting-label-row">
+              <span class="setting-label">開始アナウンス</span>
+              <span class="setting-hint">再生前に読み上げるテキスト</span>
+            </div>
+            <textarea id="announcementText" class="announcement-input"
+                      placeholder="例: Single Rope Speed Sprint 30 seconds" rows="2"></textarea>
+            <div class="setting-divider"></div>
+            <div class="setting-row">
+              <label class="setting-label" for="countdownSec">カウントダウン</label>
+              <div class="input-row">
+                <input id="countdownSec" type="number" class="input-number input-sm"
+                       value="3" min="0" max="10" step="1" inputmode="numeric">
+                <span class="unit">秒</span>
+              </div>
+            </div>
+            <p class="setting-hint" style="margin-top:4px">例：3秒 → Three, Two, One, BEEP</p>
+            <div class="setting-divider"></div>
+            <div class="setting-row">
+              <span class="setting-label">時間アナウンス</span>
+              <button id="addTimeAnnBtn" class="btn-sm-primary">＋ 追加</button>
+            </div>
+            <div id="timeAnnList" class="time-ann-list"></div>
+          </div>
+
+          <div class="option-divider"></div>
+
+          <!-- 機能 ON / OFF -->
+          <div class="option-section">
+            <h3 class="option-section-title">機能 ON / OFF</h3>
+            <div class="toggle-list">
+              <label class="toggle-row" for="togAnnouncement">
+                <div class="toggle-info">
+                  <span class="toggle-name">開始アナウンス読み上げ</span>
+                  <span class="toggle-desc">カウントダウン前にテキストを読み上げ</span>
+                </div>
+                <div class="toggle-wrap">
+                  <input type="checkbox" id="togAnnouncement" checked>
+                  <span class="tog-slider"></span>
+                </div>
+              </label>
+              <label class="toggle-row" for="togCountdown">
+                <div class="toggle-info">
+                  <span class="toggle-name">カウントダウン音声</span>
+                  <span class="toggle-desc">Three, Two, One の読み上げ</span>
+                </div>
+                <div class="toggle-wrap">
+                  <input type="checkbox" id="togCountdown" checked>
+                  <span class="tog-slider"></span>
+                </div>
+              </label>
+              <label class="toggle-row" for="togBeepStart">
+                <div class="toggle-info">
+                  <span class="toggle-name">スタート BEEP</span>
+                  <span class="toggle-desc">最初のビートの合図音</span>
+                </div>
+                <div class="toggle-wrap">
+                  <input type="checkbox" id="togBeepStart" checked>
+                  <span class="tog-slider"></span>
+                </div>
+              </label>
+              <label class="toggle-row" for="togBeepTransition">
+                <div class="toggle-info">
+                  <span class="toggle-name">切替 BEEP</span>
+                  <span class="toggle-desc">セグメント切り替わりの合図音</span>
+                </div>
+                <div class="toggle-wrap">
+                  <input type="checkbox" id="togBeepTransition" checked>
+                  <span class="tog-slider"></span>
+                </div>
+              </label>
+              <label class="toggle-row" for="togBeepEnd">
+                <div class="toggle-info">
+                  <span class="toggle-name">終了 BEEP</span>
+                  <span class="toggle-desc">メトロノーム終了の合図音</span>
+                </div>
+                <div class="toggle-wrap">
+                  <input type="checkbox" id="togBeepEnd" checked>
+                  <span class="tog-slider"></span>
+                </div>
+              </label>
+              <label class="toggle-row" for="togVoiceCount">
+                <div class="toggle-info">
+                  <span class="toggle-name">回数アナウンス</span>
+                  <span class="toggle-desc">スタート・切替時に回数を英語で読上げ</span>
+                </div>
+                <div class="toggle-wrap">
+                  <input type="checkbox" id="togVoiceCount" checked>
+                  <span class="tog-slider"></span>
+                </div>
+              </label>
+              <label class="toggle-row" for="togVoiceTime">
+                <div class="toggle-info">
+                  <span class="toggle-name">時間アナウンス</span>
+                  <span class="toggle-desc">指定した時間を英語で読上げ</span>
+                </div>
+                <div class="toggle-wrap">
+                  <input type="checkbox" id="togVoiceTime" checked>
+                  <span class="tog-slider"></span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="option-divider"></div>
+
+          <!-- クリック音 -->
+          <div class="option-section">
+            <h3 class="option-section-title">クリック音</h3>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="clickSound" value="electronic" checked>
+                <span>電子音</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="clickSound" value="marimba">
+                <span>木琴風</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="clickSound" value="simple">
+                <span>シンプル</span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+      </details>
 
     </main>
   </div>

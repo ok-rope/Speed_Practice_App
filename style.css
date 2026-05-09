@@ -661,6 +661,70 @@ body {
   color: var(--text-light);
 }
 
+/* ── Options accordion ── */
+.options-accordion {
+  padding: 0;
+}
+
+.options-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  list-style: none;
+}
+
+.options-summary::-webkit-details-marker { display: none; }
+.options-summary::marker { display: none; }
+
+.options-summary-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.options-arrow {
+  font-size: 20px;
+  font-weight: 300;
+  color: var(--text-light);
+  line-height: 1;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.options-accordion[open] .options-arrow {
+  transform: rotate(90deg);
+}
+
+.options-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.option-section {
+  padding-top: 16px;
+}
+
+.option-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 14px;
+}
+
+.option-divider {
+  height: 1px;
+  background: var(--border);
+  margin-top: 16px;
+}
+
 /* ── Desktop ── */
 @media (min-width: 600px) {
   .app-header h1 { font-size: 22px; }
@@ -669,4 +733,6 @@ body {
   .segment-card { padding: 16px 20px; }
   .timeline-bar { height: 68px; }
   .timeline-seg { font-size: 13px; }
+  .options-summary { padding: 18px 20px; }
+  .options-body { padding: 0 20px 20px; }
 }
