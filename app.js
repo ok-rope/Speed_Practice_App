@@ -5,8 +5,8 @@ const appState = {
   clickSound:         'electronic',
   playState:          'stopped',
   countdownSec:       3,
-  announcementText:   '',
-  timeAnnouncements:  [],           // [{ timeSec: 10 }, ...]
+  announcementText:   'Single Rope',
+  timeAnnouncements:  [{ timeSec: 10 }, { timeSec: 20 }],
   toggles: {
     announcement:    true,
     countdown:       true,

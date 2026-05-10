@@ -75,6 +75,17 @@ body {
   gap: 14px;
 }
 
+.mobile-sound-notice {
+  padding: 10px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
 /* ── Card ── */
 .card {
   background: var(--card-bg);
