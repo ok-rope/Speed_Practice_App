@@ -1,7 +1,11 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 const appState = {
   totalSec:           30,
-  segments:           [{ startSec: 0, endSec: 30, jumps: 80, mode: 'step' }],
+  segments:           [
+    { startSec: 0,  endSec: 10, jumps: 80, mode: 'step' },
+    { startSec: 10, endSec: 20, jumps: 80, mode: 'step' },
+    { startSec: 20, endSec: 30, jumps: 80, mode: 'step' },
+  ],
   clickSound:         'electronic',
   playState:          'stopped',
   countdownSec:       3,
