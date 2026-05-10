@@ -3,6 +3,9 @@ const TRANSLATIONS = {
     // Header
     'mobile-notice':       'スマートフォンの場合はマナーモードを解除してください。',
 
+    // Store link
+    'store-name':          'なわとび専門店 OK ROPE',
+
     // Sections
     'section-total-time':  '全体時間',
     'section-segments':    'セグメント設定',
@@ -83,6 +86,9 @@ const TRANSLATIONS = {
   en: {
     // Header
     'mobile-notice':       'Please turn off silent / mute mode on your smartphone.',
+
+    // Store link
+    'store-name':          'Jump Rope Store OK ROPE',
 
     // Sections
     'section-total-time':  'Total Time',
@@ -197,6 +203,10 @@ function setLang(lang) {
   // Slide the pill indicator
   const langSwitch = document.querySelector('.lang-switch');
   if (langSwitch) langSwitch.classList.toggle('en', lang === 'en');
+
+  // Switch store link URL
+  const storeLink = document.getElementById('storeLink');
+  if (storeLink) storeLink.href = lang === 'en' ? 'https://ok-rope.com/en' : 'https://ok-rope.com/';
 
   // Re-render JS-generated content
   if (typeof render === 'function') render();

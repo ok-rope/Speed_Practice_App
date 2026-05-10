@@ -67,6 +67,20 @@ body {
   letter-spacing: 0.03em;
 }
 
+.store-link {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.80);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+.store-link:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
 /* Ver + lang toggle stacked vertically to save horizontal space */
 .title-right {
   display: flex;
