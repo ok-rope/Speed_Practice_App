@@ -4,11 +4,10 @@ function scheduleBeep(ctx, time) {
   const gain = ctx.createGain();
   osc.connect(gain);
   gain.connect(ctx.destination);
-  osc.type = 'sine';
+  osc.type = 'square';       // harmonic-rich; perceived ~2x louder than sine at same gain
   osc.frequency.value = 880;
-  gain.gain.setValueAtTime(0, time);
-  gain.gain.linearRampToValueAtTime(0.9, time + 0.012);
-  gain.gain.setValueAtTime(0.9, time + 0.10);
+  gain.gain.setValueAtTime(1.8, time);          // instant attack; 2x peak vs previous 0.9
+  gain.gain.setValueAtTime(1.8, time + 0.10);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.24);
   osc.start(time);
   osc.stop(time + 0.25);
