@@ -90,17 +90,37 @@ class MetronomeEngine {
 
   _setupCompressor() {
     const ctx            = this.audioCtx;
-    // Hard limiter — only prevents clipping; individual gains carry the loudness
     this._compressor     = ctx.createDynamicsCompressor();
-    this._compressor.threshold.value = -6;
-    this._compressor.knee.value      = 2;
-    this._compressor.ratio.value     = 20;
-    this._compressor.attack.value    = 0.001;
-    this._compressor.release.value   = 0.05;
+    this._compressor.threshold.value = -20;
+    this._compressor.knee.value      = 4;
+    this._compressor.ratio.value     = 8;
+    this._compressor.attack.value    = 0.003;
+    this._compressor.release.value   = 0.15;
     this._masterOut      = ctx.createGain();
-    this._masterOut.gain.value = 1.0;
+    this._masterOut.gain.value = 6.0;
     this._compressor.connect(this._masterOut);
     this._masterOut.connect(ctx.destination);
+  }
+
+  // Plays an inaudible tone through the full compressor chain to force iOS
+  // to switch from the quiet "ambient" audio session to "playback" before
+  // the first real beat fires.
+  _playWarmupTone() {
+    if (!this.audioCtx || !this._compressor) return;
+    try {
+      const ctx = this.audioCtx;
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      osc.connect(g);
+      g.connect(this._compressor);
+      const now = ctx.currentTime;
+      g.gain.setValueAtTime(0.01, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.start(now);
+      osc.stop(now + 0.20);
+    } catch (_) {}
   }
 
   _ensureCtx() {
@@ -117,6 +137,7 @@ class MetronomeEngine {
 
     return Promise.race([resumePromise, timeout]).then(() => {
       this._playSilentBuffer();
+      this._playWarmupTone();
       return this.audioCtx;
     });
   }
