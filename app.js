@@ -6,6 +6,7 @@ const appState = {
     { startSec: 10, endSec: 20, jumps: 70, mode: 'step' },
     { startSec: 20, endSec: 30, jumps: 60, mode: 'step' },
   ],
+  beepGain:           1.8,
   clickSound:         'electronic',
   playState:          'stopped',
   countdownSec:       3,
@@ -676,6 +677,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('input[name="clickSound"]').forEach(r =>
     r.addEventListener('change', () => { appState.clickSound = r.value; })
   );
+
+  // BEEP gain slider
+  const beepSlider = document.getElementById('beepGainSlider');
+  const beepValEl  = document.getElementById('beepGainVal');
+  beepSlider.addEventListener('input', () => {
+    const v = parseFloat(beepSlider.value);
+    appState.beepGain = v;
+    beepValEl.textContent = '×' + v.toFixed(1);
+  });
 
   // Playback
   document.getElementById('playBtn').addEventListener('click', onPlay);

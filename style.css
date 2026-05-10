@@ -754,6 +754,53 @@ body {
   margin-top: 16px;
 }
 
+/* ── BEEP gain slider ── */
+.beep-gain-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.beep-gain-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 130px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+
+.beep-gain-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.beep-gain-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.beep-gain-val {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  min-width: 36px;
+  text-align: right;
+}
+
 /* ── Desktop ── */
 @media (min-width: 600px) {
   .app-header h1 { font-size: 22px; }

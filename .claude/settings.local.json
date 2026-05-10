@@ -3,7 +3,9 @@
     "allow": [
       "Bash(start \"\" \"c:\\\\Antigravity\\\\Speed_Practice_App\\\\index.html\")",
       "Bash(git -C \"c:\\\\Antigravity\\\\Speed_Practice_App\" remote -v)",
-      "Bash(git -C \"c:\\\\Antigravity\\\\Speed_Practice_App\" log --oneline -5)"
+      "Bash(git -C \"c:\\\\Antigravity\\\\Speed_Practice_App\" log --oneline -5)",
+      "Bash(Select-String -Path \"c:\\\\Antigravity\\\\Speed_Practice_App\\\\style.css\" -Pattern \"setting-row|radio-group|btn-sm\")",
+      "Bash(Select-Object -Last 10)"
     ]
   }
 }

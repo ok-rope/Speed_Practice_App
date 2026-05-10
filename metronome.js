@@ -1,32 +1,35 @@
 // ── BEEP signal ───────────────────────────────────────────────────────────────
-function scheduleBeep(ctx, time) {
+function scheduleBeep(ctx, time, dest, beepGain) {
+  dest     = dest     || ctx.destination;
+  beepGain = beepGain != null ? beepGain : 1.8;
   const osc  = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.type = 'square';       // harmonic-rich; perceived ~2x louder than sine at same gain
+  gain.connect(dest);
+  osc.type = 'square';
   osc.frequency.value = 880;
-  gain.gain.setValueAtTime(1.8, time);          // instant attack; 2x peak vs previous 0.9
-  gain.gain.setValueAtTime(1.8, time + 0.10);
+  gain.gain.setValueAtTime(beepGain, time);
+  gain.gain.setValueAtTime(beepGain, time + 0.10);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.24);
   osc.start(time);
   osc.stop(time + 0.25);
 }
 
 // ── Regular click sounds ──────────────────────────────────────────────────────
-function scheduleClick(ctx, time, type) {
+function scheduleClick(ctx, time, type, dest) {
+  dest = dest || ctx.destination;
   switch (type) {
-    case 'marimba':  _clickMarimba(ctx, time);  break;
-    case 'simple':   _clickSimple(ctx, time);   break;
-    default:         _clickElectronic(ctx, time);
+    case 'marimba':  _clickMarimba(ctx, time, dest);  break;
+    case 'simple':   _clickSimple(ctx, time, dest);   break;
+    default:         _clickElectronic(ctx, time, dest);
   }
 }
 
-function _clickElectronic(ctx, time) {
+function _clickElectronic(ctx, time, dest) {
   const osc  = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(dest);
   osc.frequency.value = 1000;
   gain.gain.setValueAtTime(0.8, time);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
@@ -34,11 +37,11 @@ function _clickElectronic(ctx, time) {
   osc.stop(time + 0.06);
 }
 
-function _clickMarimba(ctx, time) {
+function _clickMarimba(ctx, time, dest) {
   const osc  = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(dest);
   osc.type = 'sine';
   osc.frequency.value = 880;
   gain.gain.setValueAtTime(0.7, time);
@@ -47,7 +50,7 @@ function _clickMarimba(ctx, time) {
   osc.stop(time + 0.30);
 }
 
-function _clickSimple(ctx, time) {
+function _clickSimple(ctx, time, dest) {
   const dur  = 0.018;
   const sz   = Math.ceil(ctx.sampleRate * dur);
   const buf  = ctx.createBuffer(1, sz, ctx.sampleRate);
@@ -57,7 +60,7 @@ function _clickSimple(ctx, time) {
   const gain = ctx.createGain();
   src.buffer = buf;
   src.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(dest);
   gain.gain.setValueAtTime(0.6, time);
   src.start(time);
 }
@@ -76,11 +79,33 @@ class MetronomeEngine {
     this._stopped        = true;
     this._beatCount      = 0;
     this._endScheduled   = false;
+    this._compressor     = null;
+    this._masterOut      = null;
+  }
+
+  // All sounds connect here; routes through compressor → masterOut → hardware
+  get destination() {
+    return this._compressor || (this.audioCtx && this.audioCtx.destination);
+  }
+
+  _setupCompressor() {
+    const ctx            = this.audioCtx;
+    this._compressor     = ctx.createDynamicsCompressor();
+    this._compressor.threshold.value = -20;
+    this._compressor.knee.value      = 4;
+    this._compressor.ratio.value     = 8;
+    this._compressor.attack.value    = 0.003;
+    this._compressor.release.value   = 0.15;
+    this._masterOut      = ctx.createGain();
+    this._masterOut.gain.value = 2.0; // makeup gain after compression
+    this._compressor.connect(this._masterOut);
+    this._masterOut.connect(ctx.destination);
   }
 
   _ensureCtx() {
     if (!this.audioCtx) {
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      this._setupCompressor();
     }
     this._playSilentBuffer();
 
@@ -153,7 +178,9 @@ class MetronomeEngine {
     if (this._stopped) return;
 
     const LOOKAHEAD = 0.1;
-    const { segments, totalSec, clickSound, toggles } = this.state;
+    const { segments, totalSec, clickSound, toggles, beepGain } = this.state;
+    const dest = this.destination;
+    const gain = beepGain != null ? beepGain : 1.8;
 
     while (this.nextBeatTime < this.audioCtx.currentTime + LOOKAHEAD) {
       const elapsed = this.nextBeatTime - this.startAudioTime;
@@ -162,10 +189,8 @@ class MetronomeEngine {
       if (elapsed >= totalSec) {
         if (!this._endScheduled) {
           this._endScheduled = true;
-          // Clamp to near-future: by the time end is detected, startAudioTime+totalSec
-          // may already be in the past (nextBeatTime overshot it by up to one interval).
           const beepT = Math.max(this.startAudioTime + totalSec, this.audioCtx.currentTime + 0.02);
-          if (toggles.beepEnd) scheduleBeep(this.audioCtx, beepT);
+          if (toggles.beepEnd) scheduleBeep(this.audioCtx, beepT, dest, gain);
           const delayMs = Math.max(0, (beepT - this.audioCtx.currentTime + 0.35) * 1000);
           this.stop();
           if (this.onFinish) setTimeout(this.onFinish, delayMs);
@@ -188,14 +213,14 @@ class MetronomeEngine {
 
       if (isFirstBeat) {
         toggles.beepStart
-          ? scheduleBeep(this.audioCtx, this.nextBeatTime)
-          : scheduleClick(this.audioCtx, this.nextBeatTime, clickSound);
+          ? scheduleBeep(this.audioCtx, this.nextBeatTime, dest, gain)
+          : scheduleClick(this.audioCtx, this.nextBeatTime, clickSound, dest);
       } else if (isTransition) {
         toggles.beepTransition
-          ? scheduleBeep(this.audioCtx, this.nextBeatTime)
-          : scheduleClick(this.audioCtx, this.nextBeatTime, clickSound);
+          ? scheduleBeep(this.audioCtx, this.nextBeatTime, dest, gain)
+          : scheduleClick(this.audioCtx, this.nextBeatTime, clickSound, dest);
       } else {
-        scheduleClick(this.audioCtx, this.nextBeatTime, clickSound);
+        scheduleClick(this.audioCtx, this.nextBeatTime, clickSound, dest);
       }
 
       this._beatCount++;

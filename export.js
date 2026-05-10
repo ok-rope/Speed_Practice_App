@@ -160,7 +160,8 @@ async function exportMP3(state) {
 
 // ── Offline beat scheduler ────────────────────────────────────────────────────
 function _renderBeatsOffline(ctx, state, cdSec) {
-  const { segments, totalSec, clickSound, toggles } = state;
+  const { segments, totalSec, clickSound, toggles, beepGain } = state;
+  const gain = beepGain != null ? beepGain : 1.8;
   const maxT = ctx.length / ctx.sampleRate;
 
   let t         = cdSec;
@@ -173,7 +174,7 @@ function _renderBeatsOffline(ctx, state, cdSec) {
     if (metElapsed >= totalSec) {
       if (toggles.beepEnd) {
         const endT = cdSec + totalSec;
-        if (endT < maxT) scheduleBeep(ctx, endT);
+        if (endT < maxT) scheduleBeep(ctx, endT, null, gain);
       }
       break;
     }
@@ -192,11 +193,11 @@ function _renderBeatsOffline(ctx, state, cdSec) {
     if (t < maxT) {
       if (isFirst) {
         toggles.beepStart
-          ? scheduleBeep(ctx, t)
+          ? scheduleBeep(ctx, t, null, gain)
           : scheduleClick(ctx, t, clickSound);
       } else if (isTransition) {
         toggles.beepTransition
-          ? scheduleBeep(ctx, t)
+          ? scheduleBeep(ctx, t, null, gain)
           : scheduleClick(ctx, t, clickSound);
       } else {
         scheduleClick(ctx, t, clickSound);
