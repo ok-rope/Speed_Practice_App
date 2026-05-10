@@ -45,11 +45,17 @@ function speak(text) {
 }
 
 function warmupSpeech() {
-  if (!window.speechSynthesis) return;
+  if (!window.speechSynthesis) return Promise.resolve();
   const u = new SpeechSynthesisUtterance(' ');
   u.volume = 0.01;
   u.rate   = 10;
+  const done = new Promise(resolve => {
+    u.onend = resolve;
+    u.onerror = resolve;
+    setTimeout(resolve, 250);
+  });
   window.speechSynthesis.speak(u);
+  return done;
 }
 
 // ── Speech events ──────────────────────────────────────────────────────────────
@@ -437,8 +443,7 @@ let _iosUnlocked    = false;
 // Plays a silent <audio> element so iOS sets AudioSession to 'playback' category,
 // which makes Web Audio bypass the hardware silent/ringer switch.
 function _unlockIOSAudioSession() {
-  if (_iosUnlocked) return;
-  _iosUnlocked = true;
+  if (_iosUnlocked) return Promise.resolve();
   try {
     // Minimal valid WAV: 1 silent sample at 22050 Hz mono 16-bit
     const b = new Uint8Array([
@@ -449,8 +454,15 @@ function _unlockIOSAudioSession() {
     ]);
     const url = URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
     const a   = new Audio(url);
-    a.play().then(() => URL.revokeObjectURL(url)).catch(() => URL.revokeObjectURL(url));
-  } catch (_) {}
+    a.muted = false;
+    a.volume = 0.01;
+    return a.play()
+      .then(() => { _iosUnlocked = true; })
+      .catch(() => {})
+      .finally(() => URL.revokeObjectURL(url));
+  } catch (_) {
+    return Promise.resolve();
+  }
 }
 
 function onPlay() {
@@ -458,9 +470,11 @@ function onPlay() {
   // Both of these must run synchronously within the user gesture:
   // 1) <audio> playback → changes iOS AudioSession to 'playback' (bypasses silent switch)
   // 2) AudioContext creation/resume → unlocks Web Audio on iOS/Android
-  _unlockIOSAudioSession();
-  metronome._ensureCtx();
-  warmupSpeech();
+  const unlockPromise = Promise.allSettled([
+    _unlockIOSAudioSession(),
+    metronome._ensureCtx(),
+    warmupSpeech(),
+  ]);
   appState.playState = 'playing';
   _awaitingStart = true;
 
@@ -475,8 +489,12 @@ function onPlay() {
   function beginMetronome() {
     if (!_awaitingStart) return;
     _awaitingStart = false;
-    metronome.start(appState, onPlayEnd);
-    startRAF();
+    unlockPromise.finally(() => {
+      if (appState.playState !== 'playing') return;
+      metronome.start(appState, onPlayEnd).then(() => {
+        if (appState.playState === 'playing') startRAF();
+      });
+    });
   }
 
   const text = (appState.announcementText || '').trim();
@@ -544,6 +562,10 @@ async function onExport() {
   } catch (e) {
     if (e.name === 'NotAllowedError' || e.name === 'AbortError') {
       status.textContent = '録音がキャンセルされました。';
+    } else if (e.name === 'NoAudio') {
+      status.textContent = 'タブ音声が取得できませんでした。「このタブ」と音声共有を選択してください。';
+    } else if (e.name === 'CaptureRequired') {
+      status.textContent = e.message;
     } else {
       console.error(e);
       status.textContent = 'エラー: ' + e.message;

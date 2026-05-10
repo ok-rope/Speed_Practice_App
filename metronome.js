@@ -83,9 +83,22 @@ class MetronomeEngine {
     if (!this.audioCtx) {
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
-    if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
-    // Play a silent 1-sample buffer to unlock audio hardware on iOS.
-    // Must be called synchronously within a user gesture.
+    this._playSilentBuffer();
+
+    const resumePromise = this.audioCtx.state === 'suspended'
+      ? this.audioCtx.resume().catch(() => {})
+      : Promise.resolve();
+
+    return resumePromise.then(() => {
+      this._playSilentBuffer();
+      return this.audioCtx;
+    });
+  }
+
+  // Play a silent 1-sample buffer to unlock audio hardware on iOS/Android.
+  // This should be triggered from the user's tap/click path.
+  _playSilentBuffer() {
+    if (!this.audioCtx) return;
     try {
       const buf = this.audioCtx.createBuffer(1, 1, this.audioCtx.sampleRate);
       const src = this.audioCtx.createBufferSource();
@@ -96,10 +109,10 @@ class MetronomeEngine {
   }
 
   start(state, onFinish) {
-    this._ensureCtx();
     this.state         = state;
     this.onFinish      = onFinish;
     this._stopped      = false;
+    this.startAudioTime = 0;
     this._segIdx       = 0;
     this._beatCount    = 0;
     this._endScheduled = false;
@@ -120,11 +133,9 @@ class MetronomeEngine {
       this.schedulerTimer = setInterval(() => this._scheduleLoop(), 25);
     };
 
-    if (this.audioCtx.state === 'running') {
-      doSchedule();
-    } else {
-      this.audioCtx.resume().then(doSchedule);
-    }
+    return this._ensureCtx().then(() => {
+      if (!this._stopped) doSchedule();
+    });
   }
 
   stop() {

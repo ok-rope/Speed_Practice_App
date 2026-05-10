@@ -12,14 +12,14 @@ function _scheduleCountdownTone(ctx, time, freq) {
 }
 
 // ── Real-time recording via tab audio capture (Chrome 107+) ──────────────────
-// Captures everything: metronome, beeps, and all TTS voice announcements.
+// Captures everything: metronome, beeps, and all TTS voice announcements,
+// then transcodes the captured tab audio to MP3.
 async function _exportRealtime(state) {
   const stream = await navigator.mediaDevices.getDisplayMedia({
     preferCurrentTab: true,
     audio: true,
-    video: { width: 1, height: 1 },  // required by most browsers; stopped immediately
+    video: { width: 1, height: 1 },  // required by most browsers
   });
-  stream.getVideoTracks().forEach(t => t.stop());
 
   if (!stream.getAudioTracks().length) {
     stream.getTracks().forEach(t => t.stop());
@@ -35,17 +35,15 @@ async function _exportRealtime(state) {
   recorder.ondataavailable = e => e.data?.size > 0 && chunks.push(e.data);
 
   return new Promise((resolve, reject) => {
-    recorder.onstop = () => {
-      stream.getTracks().forEach(t => t.stop());
-      const ext  = mimeType.includes('ogg') ? 'ogg' : 'webm';
-      const blob = new Blob(chunks, { type: mimeType });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = _filename(state).replace('.mp3', `.${ext}`);
-      a.click();
-      URL.revokeObjectURL(url);
-      resolve();
+    recorder.onstop = async () => {
+      try {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunks, { type: mimeType });
+        await _downloadCapturedMP3(blob, _filename(state));
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
     };
     recorder.onerror = e => reject(e.error || new Error('録音エラー'));
 
@@ -61,6 +59,59 @@ async function _exportRealtime(state) {
       onPlay();
     }, 300);
   });
+}
+
+async function _downloadCapturedMP3(blob, filename) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let audioBuffer;
+  try {
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  } finally {
+    audioCtx.close?.();
+  }
+
+  const mono = _mixToMono(audioBuffer);
+  _downloadMP3FromFloat32(mono, audioBuffer.sampleRate, filename);
+}
+
+function _mixToMono(audioBuffer) {
+  const len = audioBuffer.length;
+  const mono = new Float32Array(len);
+  const channels = Math.max(1, audioBuffer.numberOfChannels);
+
+  for (let ch = 0; ch < channels; ch++) {
+    const data = audioBuffer.getChannelData(ch);
+    for (let i = 0; i < len; i++) mono[i] += data[i] / channels;
+  }
+  return mono;
+}
+
+function _downloadMP3FromFloat32(channelData, sampleRate, filename) {
+  const pcm = new Int16Array(channelData.length);
+  for (let i = 0; i < channelData.length; i++) {
+    const s = Math.max(-1, Math.min(1, channelData[i]));
+    pcm[i]  = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+
+  const encoder  = new lamejs.Mp3Encoder(1, sampleRate, 128);
+  const BLOCK    = 1152;
+  const mp3Parts = [];
+  for (let i = 0; i < pcm.length; i += BLOCK) {
+    const chunk   = pcm.subarray(i, i + BLOCK);
+    const encoded = encoder.encodeBuffer(chunk);
+    if (encoded.length > 0) mp3Parts.push(new Uint8Array(encoded));
+  }
+  const tail = encoder.flush();
+  if (tail.length > 0) mp3Parts.push(new Uint8Array(tail));
+
+  const mp3Blob = new Blob(mp3Parts, { type: 'audio/mpeg' });
+  const url  = URL.createObjectURL(mp3Blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Offline MP3 rendering (no TTS voice; fallback for non-Chrome) ─────────────
@@ -85,31 +136,7 @@ async function _exportOffline(state) {
 
   const buffer      = await offCtx.startRendering();
   const channelData = buffer.getChannelData(0);
-
-  const pcm = new Int16Array(channelData.length);
-  for (let i = 0; i < channelData.length; i++) {
-    const s = Math.max(-1, Math.min(1, channelData[i]));
-    pcm[i]  = s < 0 ? s * 0x8000 : s * 0x7fff;
-  }
-
-  const encoder  = new lamejs.Mp3Encoder(1, SR, 128);
-  const BLOCK    = 1152;
-  const mp3Parts = [];
-  for (let i = 0; i < pcm.length; i += BLOCK) {
-    const chunk   = pcm.subarray(i, i + BLOCK);
-    const encoded = encoder.encodeBuffer(chunk);
-    if (encoded.length > 0) mp3Parts.push(new Uint8Array(encoded));
-  }
-  const tail = encoder.flush();
-  if (tail.length > 0) mp3Parts.push(new Uint8Array(tail));
-
-  const blob = new Blob(mp3Parts, { type: 'audio/mpeg' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = _filename(state);
-  a.click();
-  URL.revokeObjectURL(url);
+  _downloadMP3FromFloat32(channelData, SR, _filename(state));
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -121,10 +148,27 @@ async function exportMP3(state) {
     } catch (err) {
       // User cancelled → propagate so onExport can show a friendly message
       if (err.name === 'NotAllowedError' || err.name === 'AbortError') throw err;
-      // NoAudio or unsupported config → fall through to offline
+      if (err.name === 'NoAudio') throw err;
+      // Unsupported capture/decoding config → fall through to offline
     }
   }
+
+  if (_needsRealtimeVoice(state)) {
+    const err = new Error('読み上げ入りMP3にはChrome/Edgeのタブ音声共有が必要です。localhostまたはhttpsで開いてください。');
+    err.name = 'CaptureRequired';
+    throw err;
+  }
+
   return _exportOffline(state);
+}
+
+function _needsRealtimeVoice(state) {
+  const toggles = state.toggles || {};
+  const hasIntro = toggles.announcement && (state.announcementText || '').trim();
+  const hasCountdown = toggles.countdown && (state.countdownSec || 0) > 0;
+  const hasCountVoice = toggles.voiceCount;
+  const hasTimeVoice = toggles.voiceTime && (state.timeAnnouncements || []).length > 0;
+  return !!(hasIntro || hasCountdown || hasCountVoice || hasTimeVoice);
 }
 
 // ── Offline beat scheduler ────────────────────────────────────────────────────
