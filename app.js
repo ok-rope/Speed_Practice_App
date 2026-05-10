@@ -6,7 +6,7 @@ const appState = {
     { startSec: 10, endSec: 20, jumps: 70, mode: 'step' },
     { startSec: 20, endSec: 30, jumps: 60, mode: 'step' },
   ],
-  beepGain:           1.8,
+  beepGain:           2.5,
   clickSound:         'electronic',
   playState:          'stopped',
   countdownSec:       3,

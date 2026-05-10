@@ -31,7 +31,7 @@ function _clickElectronic(ctx, time, dest) {
   osc.connect(gain);
   gain.connect(dest);
   osc.frequency.value = 1000;
-  gain.gain.setValueAtTime(0.8, time);
+  gain.gain.setValueAtTime(2.5, time);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
   osc.start(time);
   osc.stop(time + 0.06);
@@ -44,7 +44,7 @@ function _clickMarimba(ctx, time, dest) {
   gain.connect(dest);
   osc.type = 'sine';
   osc.frequency.value = 880;
-  gain.gain.setValueAtTime(0.7, time);
+  gain.gain.setValueAtTime(2.5, time);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.28);
   osc.start(time);
   osc.stop(time + 0.30);
@@ -61,7 +61,7 @@ function _clickSimple(ctx, time, dest) {
   src.buffer = buf;
   src.connect(gain);
   gain.connect(dest);
-  gain.gain.setValueAtTime(0.6, time);
+  gain.gain.setValueAtTime(2.0, time);
   src.start(time);
 }
 
@@ -90,14 +90,15 @@ class MetronomeEngine {
 
   _setupCompressor() {
     const ctx            = this.audioCtx;
+    // Hard limiter — only prevents clipping; individual gains carry the loudness
     this._compressor     = ctx.createDynamicsCompressor();
-    this._compressor.threshold.value = -20;
-    this._compressor.knee.value      = 4;
-    this._compressor.ratio.value     = 8;
-    this._compressor.attack.value    = 0.003;
-    this._compressor.release.value   = 0.15;
+    this._compressor.threshold.value = -6;
+    this._compressor.knee.value      = 2;
+    this._compressor.ratio.value     = 20;
+    this._compressor.attack.value    = 0.001;
+    this._compressor.release.value   = 0.05;
     this._masterOut      = ctx.createGain();
-    this._masterOut.gain.value = 6.0; // makeup gain after compression
+    this._masterOut.gain.value = 1.0;
     this._compressor.connect(this._masterOut);
     this._masterOut.connect(ctx.destination);
   }
