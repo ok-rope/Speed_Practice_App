@@ -3,8 +3,8 @@ const appState = {
   totalSec:           30,
   segments:           [
     { startSec: 0,  endSec: 10, jumps: 80, mode: 'step' },
-    { startSec: 10, endSec: 20, jumps: 80, mode: 'step' },
-    { startSec: 20, endSec: 30, jumps: 80, mode: 'step' },
+    { startSec: 10, endSec: 20, jumps: 70, mode: 'step' },
+    { startSec: 20, endSec: 30, jumps: 60, mode: 'step' },
   ],
   clickSound:         'electronic',
   playState:          'stopped',
@@ -65,6 +65,7 @@ function warmupSpeech() {
 // ── Speech events ──────────────────────────────────────────────────────────────
 const SPEECH_LEAD = 0.20; // fire 200 ms early to compensate TTS latency
 let _speechEvents = [];
+let _speechTimers = [];
 
 function buildSpeechEvents() {
   _speechEvents = [];
@@ -74,20 +75,20 @@ function buildSpeechEvents() {
   if (toggles.countdown && countdownSec > 0) {
     const count = Math.round(countdownSec);
     for (let i = count; i >= 1; i--) {
-      _speechEvents.push({ timeAt: -i, text: numToWords(i), fired: false });
+      _speechEvents.push({ timeAt: -i, text: numToWords(i) });
     }
   }
 
   if (toggles.voiceCount) {
     segments.forEach(seg => {
-      _speechEvents.push({ timeAt: seg.startSec, text: numToWords(seg.jumps), fired: false });
+      _speechEvents.push({ timeAt: seg.startSec, text: numToWords(seg.jumps) });
     });
   }
 
   if (toggles.voiceTime) {
     timeAnnouncements.forEach(ann => {
       if (ann.timeSec > 0 && ann.timeSec <= totalSec) {
-        _speechEvents.push({ timeAt: ann.timeSec, text: numToWords(ann.timeSec), fired: false });
+        _speechEvents.push({ timeAt: ann.timeSec, text: numToWords(ann.timeSec) });
       }
     });
   }
@@ -95,13 +96,26 @@ function buildSpeechEvents() {
   _speechEvents.sort((a, b) => a.timeAt - b.timeAt);
 }
 
-function checkSpeechEvents(elapsed) {
-  for (const ev of _speechEvents) {
-    if (!ev.fired && elapsed >= ev.timeAt - SPEECH_LEAD) {
-      ev.fired = true;
-      speak(ev.text);
-    }
-  }
+// Schedule all speech events upfront via setTimeout — more reliable than RAF
+// on iOS/Android where speechSynthesis.speak() from a timer loop may be blocked.
+function _scheduleSpeechWithTimers() {
+  _clearSpeechTimers();
+  const now     = metronome.audioCtx.currentTime;
+  const startAt = metronome.startAudioTime;
+
+  _speechEvents.forEach(ev => {
+    const fireAt  = startAt + ev.timeAt - SPEECH_LEAD;
+    const delayMs = Math.max(0, (fireAt - now) * 1000);
+    const t = setTimeout(() => {
+      if (appState.playState === 'playing') speak(ev.text);
+    }, delayMs);
+    _speechTimers.push(t);
+  });
+}
+
+function _clearSpeechTimers() {
+  _speechTimers.forEach(t => clearTimeout(t));
+  _speechTimers = [];
 }
 
 // ── Canvas timeline overlay ────────────────────────────────────────────────────
@@ -189,6 +203,7 @@ let rafId = null;
 
 function startRAF() {
   buildSpeechEvents();
+  _scheduleSpeechWithTimers();
 
   function tick() {
     if (appState.playState !== 'playing') return;
@@ -196,7 +211,6 @@ function startRAF() {
 
     _updatePlayhead(elapsed);
     _updatePlayInfo(elapsed);
-    checkSpeechEvents(elapsed);
 
     rafId = requestAnimationFrame(tick);
   }
@@ -205,6 +219,7 @@ function startRAF() {
 
 function stopRAF() {
   if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+  _clearSpeechTimers();
 }
 
 function _updatePlayhead(elapsed) {
@@ -518,6 +533,7 @@ function onPlay() {
 function onStop() {
   if (appState.playState === 'stopped') return;
   _awaitingStart = false;
+  _clearSpeechTimers();
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   metronome.stop();
   onPlayEnd();
