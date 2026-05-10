@@ -258,7 +258,7 @@ function _updatePlayhead(elapsed) {
 
 function _updatePlayInfo(elapsed) {
   if (elapsed < 0) {
-    document.getElementById('infoJumps').innerHTML  = 'カウントダウン中...';
+    document.getElementById('infoJumps').innerHTML  = t('counting-down');
     document.getElementById('infoRemain').innerHTML = '';
     document.getElementById('infoSeg').innerHTML    = '';
     return;
@@ -270,12 +270,9 @@ function _updatePlayInfo(elapsed) {
   const seg    = segs[idx];
   const remain = Math.max(0, appState.totalSec - elapsed).toFixed(1);
 
-  document.getElementById('infoJumps').innerHTML  =
-    `<strong>${seg.jumps}</strong> 回/分 (BPM ${seg.jumps * 2})`;
-  document.getElementById('infoRemain').innerHTML =
-    `残り <strong>${remain}</strong> 秒`;
-  document.getElementById('infoSeg').innerHTML    =
-    `セグメント <strong>${idx + 1} / ${segs.length}</strong>`;
+  document.getElementById('infoJumps').innerHTML  = t('jumps-info', {j: seg.jumps, b: seg.jumps * 2});
+  document.getElementById('infoRemain').innerHTML = t('remain-info', {n: remain});
+  document.getElementById('infoSeg').innerHTML    = t('seg-info',   {a: idx + 1,  b: segs.length});
 }
 
 // ── Color helpers ──────────────────────────────────────────────────────────────
@@ -348,8 +345,8 @@ function renderTimeAnnouncements() {
     item.innerHTML = `
       <input type="number" class="input-number ann-time" data-idx="${i}"
              value="${ann.timeSec}" min="1" max="300" step="1" inputmode="numeric">
-      <span class="unit">秒</span>
-      <button class="btn-remove ann-del" data-idx="${i}">削除</button>
+      <span class="unit">${t('unit-sec')}</span>
+      <button class="btn-remove ann-del" data-idx="${i}">${t('btn-delete-ann')}</button>
     `;
     list.appendChild(item);
   });
@@ -389,17 +386,17 @@ function renderSegments() {
     card.className = 'segment-card';
     card.innerHTML = `
       <div class="segment-card-header">
-        <span class="segment-index">セグメント ${i + 1}</span>
-        <button class="btn-remove" data-idx="${i}" ${segs.length <= 1 ? 'disabled' : ''}>削除</button>
+        <span class="segment-index">${t('seg-label', {n: i + 1})}</span>
+        <button class="btn-remove" data-idx="${i}" ${segs.length <= 1 ? 'disabled' : ''}>${t('btn-delete')}</button>
       </div>
       <div class="segment-time-row">
         <div class="segment-field">
-          <label>開始（秒）</label>
+          <label>${t('seg-start')}</label>
           <input type="number" class="input-number" value="${seg.startSec}" readonly inputmode="decimal">
         </div>
         <span class="time-arrow">→</span>
         <div class="segment-field">
-          <label>終了（秒）</label>
+          <label>${t('seg-end')}</label>
           <input type="number" class="input-number seg-end" data-idx="${i}"
                  value="${seg.endSec}" step="0.1" min="0.1" max="300"
                  ${isLast ? 'readonly' : ''} inputmode="decimal">
@@ -407,19 +404,19 @@ function renderSegments() {
       </div>
       <div class="segment-jumps-row">
         <div class="segment-field">
-          <label>回数（回/分）</label>
+          <label>${t('seg-jumps')}</label>
           <input type="number" class="input-number seg-jumps" data-idx="${i}"
                  value="${seg.jumps}" min="30" max="200" inputmode="numeric">
         </div>
         <span class="bpm-badge">= BPM <strong>${seg.jumps * 2}</strong></span>
       </div>
       <div class="segment-mode-row">
-        <span class="mode-label">モード</span>
+        <span class="mode-label">${t('seg-mode')}</span>
         <div class="mode-toggle">
           <button class="mode-btn ${seg.mode === 'step' ? 'active' : ''}"
-                  data-idx="${i}" data-mode="step">ステップ</button>
+                  data-idx="${i}" data-mode="step">${t('btn-step')}</button>
           <button class="mode-btn ${seg.mode === 'gradient' ? 'active' : ''}"
-                  data-idx="${i}" data-mode="gradient">グラデーション</button>
+                  data-idx="${i}" data-mode="gradient">${t('btn-gradient')}</button>
         </div>
       </div>
     `;
@@ -588,7 +585,7 @@ async function onExport() {
   if (appState.playState === 'playing') {
     const status = document.getElementById('exportStatus');
     status.hidden = false;
-    status.textContent = '再生中はエクスポートできません。停止してから実行してください。';
+    status.textContent = t('exp-playing');
     setTimeout(() => { status.hidden = true; }, 3000);
     return;
   }
@@ -599,21 +596,19 @@ async function onExport() {
   status.hidden = false;
 
   const canCapture = !!navigator.mediaDevices?.getDisplayMedia;
-  status.textContent = canCapture
-    ? 'ブラウザの共有ダイアログで「このタブ」を選択してください...'
-    : '音声を生成中...';
+  status.textContent = canCapture ? t('exp-capturing') : t('exp-generating');
 
   try {
     await exportMP3(appState);
-    status.textContent = 'ダウンロードを開始しました。';
+    status.textContent = t('exp-started');
   } catch (e) {
     if (e.name === 'NotAllowedError' || e.name === 'AbortError') {
-      status.textContent = '録音がキャンセルされました。';
+      status.textContent = t('exp-cancelled');
     } else if (e.name === 'NoAudio') {
-      status.textContent = 'タブ音声が取得できませんでした。「このタブ」と音声共有を選択してください。';
+      status.textContent = t('exp-no-audio');
     } else {
       console.error(e);
-      status.textContent = 'エラー: ' + e.message;
+      status.textContent = t('exp-error') + e.message;
     }
   } finally {
     btn.disabled = false;
@@ -677,6 +672,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('input[name="clickSound"]').forEach(r =>
     r.addEventListener('change', () => { appState.clickSound = r.value; })
   );
+
+  // Language toggle
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', () => setLang(btn.dataset.lang));
+  });
 
   // BEEP gain slider
   const beepSlider = document.getElementById('beepGainSlider');

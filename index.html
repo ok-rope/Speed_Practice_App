@@ -3,41 +3,50 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>なわとびメトロノーム</title>
+  <title>なわとびメトロノーム / Jump Rope Metronome</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app">
     <header class="app-header">
       <div class="title-row">
-        <h1>なわとびメトロノーム</h1>
-        <span class="app-version">Ver0.06</span>
+        <h1>
+          なわとびメトロノーム
+          <span class="title-sub">Jump Rope Metronome</span>
+        </h1>
+        <div class="title-right">
+          <span class="app-version">Ver0.07</span>
+          <div class="lang-switch">
+            <button class="lang-btn active" data-lang="ja">日本語</button>
+            <button class="lang-btn" data-lang="en">EN</button>
+          </div>
+        </div>
       </div>
     </header>
 
     <main class="app-main">
-      <p class="mobile-sound-notice">スマートフォンの場合はマナーモードを解除してください。</p>
+      <p class="mobile-sound-notice" data-i18n="mobile-notice">スマートフォンの場合はマナーモードを解除してください。</p>
 
       <!-- 全体時間 -->
       <section class="card">
-        <h2 class="card-title">全体時間</h2>
+        <h2 class="card-title" data-i18n="section-total-time">全体時間</h2>
         <div class="total-time-row">
           <input id="totalSec" type="number" class="input-number"
                  value="30" min="1" max="300" inputmode="numeric">
-          <span class="unit">秒</span>
+          <span class="unit" data-i18n="unit-sec">秒</span>
         </div>
       </section>
 
       <!-- セグメント設定 -->
       <section class="card">
-        <h2 class="card-title">セグメント設定</h2>
+        <h2 class="card-title" data-i18n="section-segments">セグメント設定</h2>
         <div id="segmentList" class="segment-list"></div>
-        <button id="addSegBtn" class="btn btn-add">＋ セグメント追加</button>
+        <button id="addSegBtn" class="btn btn-add" data-i18n="btn-add-seg">＋ セグメント追加</button>
       </section>
 
       <!-- タイムライン -->
       <section class="card">
-        <h2 class="card-title">タイムライン</h2>
+        <h2 class="card-title" data-i18n="section-timeline">タイムライン</h2>
         <div class="timeline-wrap">
           <div id="timelineBar" class="timeline-bar">
             <div id="timelineSegs" class="timeline-segs"></div>
@@ -56,44 +65,46 @@
       <!-- コントロール -->
       <section class="card controls-card">
         <div class="controls-row">
-          <button id="playBtn" class="btn btn-play">▶ 再生</button>
-          <button id="stopBtn" class="btn btn-stop" disabled>⏹ 停止</button>
+          <button id="playBtn" class="btn btn-play" data-i18n="btn-play">▶ 再生</button>
+          <button id="stopBtn" class="btn btn-stop" disabled data-i18n="btn-stop">⏹ 停止</button>
         </div>
-        <button id="exportBtn" class="btn btn-export">⬇ MP3ダウンロード</button>
+        <button id="exportBtn" class="btn btn-export" data-i18n="btn-export">⬇ MP3ダウンロード</button>
+        <p class="export-wip-notice" data-i18n="exp-wip">⚠ MP3ダウンロード機能は現在未完成です</p>
         <div id="exportStatus" class="export-status" hidden></div>
       </section>
 
       <!-- オプション（アコーディオン） -->
       <details class="card options-accordion">
         <summary class="options-summary">
-          <span class="options-summary-label">オプション</span>
+          <span class="options-summary-label" data-i18n="options-label">オプション</span>
           <span class="options-arrow">›</span>
         </summary>
         <div class="options-body">
 
           <!-- アナウンス設定 -->
           <div class="option-section">
-            <h3 class="option-section-title">アナウンス設定</h3>
+            <h3 class="option-section-title" data-i18n="opt-announce-title">アナウンス設定</h3>
             <div class="setting-label-row">
-              <span class="setting-label">開始アナウンス</span>
-              <span class="setting-hint">再生前に読み上げるテキスト</span>
+              <span class="setting-label" data-i18n="opt-announce-label">開始アナウンス</span>
+              <span class="setting-hint" data-i18n="opt-announce-hint">再生前に読み上げるテキスト</span>
             </div>
             <textarea id="announcementText" class="announcement-input"
+                      data-i18n-ph="opt-announce-ph"
                       placeholder="例: Single Rope Speed Sprint 30 seconds" rows="2">Single Rope</textarea>
             <div class="setting-divider"></div>
             <div class="setting-row">
-              <label class="setting-label" for="countdownSec">カウントダウン</label>
+              <label class="setting-label" for="countdownSec" data-i18n="opt-countdown-label">カウントダウン</label>
               <div class="input-row">
                 <input id="countdownSec" type="number" class="input-number input-sm"
                        value="3" min="0" max="10" step="1" inputmode="numeric">
-                <span class="unit">秒</span>
+                <span class="unit" data-i18n="unit-sec">秒</span>
               </div>
             </div>
-            <p class="setting-hint" style="margin-top:4px">例：3秒 → Three, Two, One, BEEP</p>
+            <p class="setting-hint" style="margin-top:4px" data-i18n="opt-countdown-hint">例：3秒 → Three, Two, One, BEEP</p>
             <div class="setting-divider"></div>
             <div class="setting-row">
-              <span class="setting-label">時間アナウンス</span>
-              <button id="addTimeAnnBtn" class="btn-sm-primary">＋ 追加</button>
+              <span class="setting-label" data-i18n="opt-timeann-label">時間アナウンス</span>
+              <button id="addTimeAnnBtn" class="btn-sm-primary" data-i18n="btn-add-timeann">＋ 追加</button>
             </div>
             <div id="timeAnnList" class="time-ann-list"></div>
           </div>
@@ -102,12 +113,12 @@
 
           <!-- 機能 ON / OFF -->
           <div class="option-section">
-            <h3 class="option-section-title">機能 ON / OFF</h3>
+            <h3 class="option-section-title" data-i18n="opt-features-title">機能 ON / OFF</h3>
             <div class="toggle-list">
               <label class="toggle-row" for="togAnnouncement">
                 <div class="toggle-info">
-                  <span class="toggle-name">開始アナウンス読み上げ</span>
-                  <span class="toggle-desc">カウントダウン前にテキストを読み上げ</span>
+                  <span class="toggle-name" data-i18n="tog-ann-name">開始アナウンス読み上げ</span>
+                  <span class="toggle-desc" data-i18n="tog-ann-desc">カウントダウン前にテキストを読み上げ</span>
                 </div>
                 <div class="toggle-wrap">
                   <input type="checkbox" id="togAnnouncement" checked>
@@ -116,8 +127,8 @@
               </label>
               <label class="toggle-row" for="togCountdown">
                 <div class="toggle-info">
-                  <span class="toggle-name">カウントダウン音声</span>
-                  <span class="toggle-desc">Three, Two, One の読み上げ</span>
+                  <span class="toggle-name" data-i18n="tog-cd-name">カウントダウン音声</span>
+                  <span class="toggle-desc" data-i18n="tog-cd-desc">Three, Two, One の読み上げ</span>
                 </div>
                 <div class="toggle-wrap">
                   <input type="checkbox" id="togCountdown" checked>
@@ -126,8 +137,8 @@
               </label>
               <label class="toggle-row" for="togBeepStart">
                 <div class="toggle-info">
-                  <span class="toggle-name">スタート BEEP</span>
-                  <span class="toggle-desc">最初のビートの合図音</span>
+                  <span class="toggle-name" data-i18n="tog-bs-name">スタート BEEP</span>
+                  <span class="toggle-desc" data-i18n="tog-bs-desc">最初のビートの合図音</span>
                 </div>
                 <div class="toggle-wrap">
                   <input type="checkbox" id="togBeepStart" checked>
@@ -136,8 +147,8 @@
               </label>
               <label class="toggle-row" for="togBeepTransition">
                 <div class="toggle-info">
-                  <span class="toggle-name">切替 BEEP</span>
-                  <span class="toggle-desc">セグメント切り替わりの合図音</span>
+                  <span class="toggle-name" data-i18n="tog-bt-name">切替 BEEP</span>
+                  <span class="toggle-desc" data-i18n="tog-bt-desc">セグメント切り替わりの合図音</span>
                 </div>
                 <div class="toggle-wrap">
                   <input type="checkbox" id="togBeepTransition" checked>
@@ -146,8 +157,8 @@
               </label>
               <label class="toggle-row" for="togBeepEnd">
                 <div class="toggle-info">
-                  <span class="toggle-name">終了 BEEP</span>
-                  <span class="toggle-desc">メトロノーム終了の合図音</span>
+                  <span class="toggle-name" data-i18n="tog-be-name">終了 BEEP</span>
+                  <span class="toggle-desc" data-i18n="tog-be-desc">メトロノーム終了の合図音</span>
                 </div>
                 <div class="toggle-wrap">
                   <input type="checkbox" id="togBeepEnd" checked>
@@ -156,8 +167,8 @@
               </label>
               <label class="toggle-row" for="togVoiceCount">
                 <div class="toggle-info">
-                  <span class="toggle-name">回数アナウンス</span>
-                  <span class="toggle-desc">スタート・切替時に回数を英語で読上げ</span>
+                  <span class="toggle-name" data-i18n="tog-vc-name">回数アナウンス</span>
+                  <span class="toggle-desc" data-i18n="tog-vc-desc">スタート・切替時に回数を英語で読上げ</span>
                 </div>
                 <div class="toggle-wrap">
                   <input type="checkbox" id="togVoiceCount" checked>
@@ -166,8 +177,8 @@
               </label>
               <label class="toggle-row" for="togVoiceTime">
                 <div class="toggle-info">
-                  <span class="toggle-name">時間アナウンス</span>
-                  <span class="toggle-desc">指定した時間を英語で読上げ</span>
+                  <span class="toggle-name" data-i18n="tog-vt-name">時間アナウンス</span>
+                  <span class="toggle-desc" data-i18n="tog-vt-desc">指定した時間を英語で読上げ</span>
                 </div>
                 <div class="toggle-wrap">
                   <input type="checkbox" id="togVoiceTime" checked>
@@ -181,24 +192,24 @@
 
           <!-- クリック音 -->
           <div class="option-section">
-            <h3 class="option-section-title">クリック音</h3>
+            <h3 class="option-section-title" data-i18n="opt-click-title">クリック音</h3>
             <div class="radio-group">
               <label class="radio-label">
                 <input type="radio" name="clickSound" value="electronic" checked>
-                <span>電子音</span>
+                <span data-i18n="click-electronic">電子音</span>
               </label>
               <label class="radio-label">
                 <input type="radio" name="clickSound" value="marimba">
-                <span>木琴風</span>
+                <span data-i18n="click-marimba">木琴風</span>
               </label>
               <label class="radio-label">
                 <input type="radio" name="clickSound" value="simple">
-                <span>シンプル</span>
+                <span data-i18n="click-simple">シンプル</span>
               </label>
             </div>
             <div class="setting-divider"></div>
             <div class="setting-row">
-              <label class="setting-label" for="beepGainSlider">BEEP 音量</label>
+              <label class="setting-label" for="beepGainSlider" data-i18n="opt-beep-gain">BEEP 音量</label>
               <div class="beep-gain-row">
                 <input type="range" id="beepGainSlider"
                        min="0.5" max="3.0" step="0.1" value="1.8"
@@ -215,6 +226,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+  <script src="i18n.js"></script>
   <script src="metronome.js"></script>
   <script src="export.js"></script>
   <script src="app.js"></script>
