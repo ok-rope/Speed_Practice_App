@@ -52,6 +52,8 @@ const TRANSLATIONS = {
     'click-electronic':    '電子音',
     'click-marimba':       '木琴風',
     'click-simple':        'シンプル',
+    'click-wood':          'ウッド',
+    'click-hihat':         'ハイハット',
     'opt-beep-gain':       'BEEP 音量',
 
     // Segment card (JS-rendered)
@@ -137,6 +139,8 @@ const TRANSLATIONS = {
     'click-electronic':    'Electronic',
     'click-marimba':       'Marimba',
     'click-simple':        'Simple',
+    'click-wood':          'Wood',
+    'click-hihat':         'Hi-hat',
     'opt-beep-gain':       'BEEP Volume',
 
     // Segment card (JS-rendered)

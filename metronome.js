@@ -21,6 +21,8 @@ function scheduleClick(ctx, time, type, dest) {
   switch (type) {
     case 'marimba':  _clickMarimba(ctx, time, dest);  break;
     case 'simple':   _clickSimple(ctx, time, dest);   break;
+    case 'wood':     _clickWood(ctx, time, dest);     break;
+    case 'hihat':    _clickHihat(ctx, time, dest);    break;
     default:         _clickElectronic(ctx, time, dest);
   }
 }
@@ -65,6 +67,41 @@ function _clickSimple(ctx, time, dest) {
   src.start(time);
 }
 
+// "tok" — triangle wave with pitch sweep, like a wood block
+function _clickWood(ctx, time, dest) {
+  const osc  = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(dest);
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(800, time);
+  osc.frequency.exponentialRampToValueAtTime(400, time + 0.04);
+  gain.gain.setValueAtTime(2.5, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+  osc.start(time);
+  osc.stop(time + 0.05);
+}
+
+// "tss" — highpass-filtered noise, like a hi-hat
+function _clickHihat(ctx, time, dest) {
+  const dur    = 0.025;
+  const sz     = Math.ceil(ctx.sampleRate * dur);
+  const buf    = ctx.createBuffer(1, sz, ctx.sampleRate);
+  const data   = buf.getChannelData(0);
+  for (let i = 0; i < sz; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / sz);
+  const src    = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  const gain   = ctx.createGain();
+  src.buffer   = buf;
+  filter.type  = 'highpass';
+  filter.frequency.value = 5000;
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(dest);
+  gain.gain.setValueAtTime(3.0, time);
+  src.start(time);
+}
+
 // ── Metronome engine ──────────────────────────────────────────────────────────
 class MetronomeEngine {
   constructor() {
@@ -102,28 +139,7 @@ class MetronomeEngine {
     this._masterOut.connect(ctx.destination);
   }
 
-  // Plays an inaudible tone through the full compressor chain to force iOS
-  // to switch from the quiet "ambient" audio session to "playback" before
-  // the first real beat fires.
-  _playWarmupTone() {
-    if (!this.audioCtx || !this._compressor) return;
-    try {
-      const ctx = this.audioCtx;
-      const osc = ctx.createOscillator();
-      const g   = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 880;
-      osc.connect(g);
-      g.connect(this._compressor);
-      const now = ctx.currentTime;
-      g.gain.setValueAtTime(0.01, now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-      osc.start(now);
-      osc.stop(now + 0.20);
-    } catch (_) {}
-  }
-
-  _ensureCtx() {
+_ensureCtx() {
     if (!this.audioCtx) {
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       this._setupCompressor();
@@ -137,7 +153,6 @@ class MetronomeEngine {
 
     return Promise.race([resumePromise, timeout]).then(() => {
       this._playSilentBuffer();
-      this._playWarmupTone();
       return this.audioCtx;
     });
   }
