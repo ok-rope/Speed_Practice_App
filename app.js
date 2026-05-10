@@ -63,7 +63,13 @@ function warmupSpeech() {
 }
 
 // ── Speech events ──────────────────────────────────────────────────────────────
-const SPEECH_LEAD = 0.20; // fire 200 ms early to compensate TTS latency
+// Priority 0 = countdown (fires before beat for TTS latency compensation)
+// Priority 1 = voiceCount (fires after BEEP)
+// Priority 2 = voiceTime  (fires after voiceCount)
+const SPEECH_LEAD = 0.20; // seconds: countdown fires this early to compensate TTS latency
+const AFTER_BEEP  = 0.35; // seconds: voiceCount fires after BEEP ends (~0.25 s) + gap
+const STAGGER     = 0.50; // seconds: voiceTime fires this long after voiceCount
+
 let _speechEvents = [];
 let _speechTimers = [];
 
@@ -71,40 +77,61 @@ function buildSpeechEvents() {
   _speechEvents = [];
   const { segments, toggles, timeAnnouncements, totalSec, countdownSec } = appState;
 
-  // Countdown: "three", "two", "one" at negative elapsed times
   if (toggles.countdown && countdownSec > 0) {
     const count = Math.round(countdownSec);
     for (let i = count; i >= 1; i--) {
-      _speechEvents.push({ timeAt: -i, text: numToWords(i) });
+      _speechEvents.push({ timeAt: -i, text: numToWords(i), priority: 0 });
     }
   }
 
   if (toggles.voiceCount) {
     segments.forEach(seg => {
-      _speechEvents.push({ timeAt: seg.startSec, text: numToWords(seg.jumps) });
+      _speechEvents.push({ timeAt: seg.startSec, text: numToWords(seg.jumps), priority: 1 });
     });
   }
 
   if (toggles.voiceTime) {
     timeAnnouncements.forEach(ann => {
       if (ann.timeSec > 0 && ann.timeSec <= totalSec) {
-        _speechEvents.push({ timeAt: ann.timeSec, text: numToWords(ann.timeSec) });
+        _speechEvents.push({ timeAt: ann.timeSec, text: numToWords(ann.timeSec), priority: 2 });
       }
     });
   }
 
-  _speechEvents.sort((a, b) => a.timeAt - b.timeAt);
+  // Sort by timeAt first, then by priority so countdown < voiceCount < voiceTime
+  _speechEvents.sort((a, b) => a.timeAt !== b.timeAt ? a.timeAt - b.timeAt : a.priority - b.priority);
 }
 
 // Schedule all speech events upfront via setTimeout — more reliable than RAF
 // on iOS/Android where speechSynthesis.speak() from a timer loop may be blocked.
+// Ordering guarantee: BEEP (Web Audio, always on time) → voiceCount → voiceTime
 function _scheduleSpeechWithTimers() {
   _clearSpeechTimers();
   const now     = metronome.audioCtx.currentTime;
   const startAt = metronome.startAudioTime;
 
+  let prevTimeAt  = null;
+  let sameTimeIdx = 0;
+
   _speechEvents.forEach(ev => {
-    const fireAt  = startAt + ev.timeAt - SPEECH_LEAD;
+    // Track position within events that share the same timeAt
+    if (ev.timeAt !== prevTimeAt) {
+      prevTimeAt  = ev.timeAt;
+      sameTimeIdx = 0;
+    } else {
+      sameTimeIdx++;
+    }
+
+    let fireAt;
+    if (ev.priority === 0) {
+      // Countdown: fire slightly before the beat so TTS latency lines up
+      fireAt = startAt + ev.timeAt - SPEECH_LEAD;
+    } else {
+      // voiceCount (idx=0): fires AFTER_BEEP after the beat
+      // voiceTime  (idx=1): fires AFTER_BEEP + STAGGER after the beat
+      fireAt = startAt + ev.timeAt + AFTER_BEEP + sameTimeIdx * STAGGER;
+    }
+
     const delayMs = Math.max(0, (fireAt - now) * 1000);
     const t = setTimeout(() => {
       if (appState.playState === 'playing') speak(ev.text);
