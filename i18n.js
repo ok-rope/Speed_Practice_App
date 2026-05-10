@@ -194,6 +194,10 @@ function setLang(lang) {
     btn.classList.toggle('active', btn.dataset.lang === lang);
   });
 
+  // Slide the pill indicator
+  const langSwitch = document.querySelector('.lang-switch');
+  if (langSwitch) langSwitch.classList.toggle('en', lang === 'en');
+
   // Re-render JS-generated content
   if (typeof render === 'function') render();
 }
