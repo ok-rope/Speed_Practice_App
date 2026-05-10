@@ -470,11 +470,9 @@ function onPlay() {
   // Both of these must run synchronously within the user gesture:
   // 1) <audio> playback → changes iOS AudioSession to 'playback' (bypasses silent switch)
   // 2) AudioContext creation/resume → unlocks Web Audio on iOS/Android
-  const unlockPromise = Promise.allSettled([
-    _unlockIOSAudioSession(),
-    metronome._ensureCtx(),
-    warmupSpeech(),
-  ]);
+  _unlockIOSAudioSession();
+  metronome._ensureCtx();
+  warmupSpeech();
   appState.playState = 'playing';
   _awaitingStart = true;
 
@@ -489,21 +487,24 @@ function onPlay() {
   function beginMetronome() {
     if (!_awaitingStart) return;
     _awaitingStart = false;
-    unlockPromise.finally(() => {
-      if (appState.playState !== 'playing') return;
-      metronome.start(appState, onPlayEnd).then(() => {
-        if (appState.playState === 'playing') startRAF();
-      });
+    metronome.start(appState, onPlayEnd).then(() => {
+      if (appState.playState === 'playing') startRAF();
     });
   }
 
   const text = (appState.announcementText || '').trim();
-  if (text && appState.toggles.announcement) {
+  if (text && appState.toggles.announcement && window.speechSynthesis) {
     const u = new SpeechSynthesisUtterance(text);
     u.lang  = 'en-US';
     u.rate  = 0.95;
-    u.onend = beginMetronome;
-    u.onerror = () => { if (_awaitingStart) beginMetronome(); };
+    const fallbackMs = Math.min(6000, Math.max(1200, text.length * 90));
+    const startTimer = setTimeout(beginMetronome, fallbackMs);
+    const finishIntro = () => {
+      clearTimeout(startTimer);
+      beginMetronome();
+    };
+    u.onend = finishIntro;
+    u.onerror = finishIntro;
     window.speechSynthesis.speak(u);
   } else {
     beginMetronome();
@@ -556,16 +557,12 @@ async function onExport() {
 
   try {
     await exportMP3(appState);
-    status.textContent = canCapture
-      ? '録音が完了しました。ダウンロードが始まります。'
-      : 'ダウンロードを開始しました。（音声読み上げは含まれません）';
+    status.textContent = 'ダウンロードを開始しました。';
   } catch (e) {
     if (e.name === 'NotAllowedError' || e.name === 'AbortError') {
       status.textContent = '録音がキャンセルされました。';
     } else if (e.name === 'NoAudio') {
       status.textContent = 'タブ音声が取得できませんでした。「このタブ」と音声共有を選択してください。';
-    } else if (e.name === 'CaptureRequired') {
-      status.textContent = e.message;
     } else {
       console.error(e);
       status.textContent = 'エラー: ' + e.message;

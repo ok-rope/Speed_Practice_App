@@ -88,8 +88,9 @@ class MetronomeEngine {
     const resumePromise = this.audioCtx.state === 'suspended'
       ? this.audioCtx.resume().catch(() => {})
       : Promise.resolve();
+    const timeout = new Promise(resolve => setTimeout(resolve, 150));
 
-    return resumePromise.then(() => {
+    return Promise.race([resumePromise, timeout]).then(() => {
       this._playSilentBuffer();
       return this.audioCtx;
     });
@@ -117,9 +118,6 @@ class MetronomeEngine {
     this._beatCount    = 0;
     this._endScheduled = false;
 
-    // Read currentTime only after the context is confirmed running.
-    // On iOS the context can still be 'suspended' here even after _ensureCtx(),
-    // because resume() is async — so we defer scheduling until it resolves.
     const doSchedule = () => {
       const { toggles, countdownSec = 3 } = state;
       const cdSec = (toggles.countdown && countdownSec > 0)

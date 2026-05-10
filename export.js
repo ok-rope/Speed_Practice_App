@@ -110,8 +110,13 @@ function _downloadMP3FromFloat32(channelData, sampleRate, filename) {
   const a    = document.createElement('a');
   a.href     = url;
   a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 1000);
 }
 
 // ── Offline MP3 rendering (no TTS voice; fallback for non-Chrome) ─────────────
@@ -146,29 +151,11 @@ async function exportMP3(state) {
     try {
       return await _exportRealtime(state);
     } catch (err) {
-      // User cancelled → propagate so onExport can show a friendly message
-      if (err.name === 'NotAllowedError' || err.name === 'AbortError') throw err;
-      if (err.name === 'NoAudio') throw err;
-      // Unsupported capture/decoding config → fall through to offline
+      console.warn('Realtime export failed; falling back to offline MP3.', err);
     }
   }
 
-  if (_needsRealtimeVoice(state)) {
-    const err = new Error('読み上げ入りMP3にはChrome/Edgeのタブ音声共有が必要です。localhostまたはhttpsで開いてください。');
-    err.name = 'CaptureRequired';
-    throw err;
-  }
-
   return _exportOffline(state);
-}
-
-function _needsRealtimeVoice(state) {
-  const toggles = state.toggles || {};
-  const hasIntro = toggles.announcement && (state.announcementText || '').trim();
-  const hasCountdown = toggles.countdown && (state.countdownSec || 0) > 0;
-  const hasCountVoice = toggles.voiceCount;
-  const hasTimeVoice = toggles.voiceTime && (state.timeAnnouncements || []).length > 0;
-  return !!(hasIntro || hasCountdown || hasCountVoice || hasTimeVoice);
 }
 
 // ── Offline beat scheduler ────────────────────────────────────────────────────
