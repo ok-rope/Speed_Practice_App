@@ -3,8 +3,8 @@ const TRANSLATIONS = {
     // Header
     'mobile-notice':       'スマートフォンの場合はマナーモードを解除してください。',
 
-    // Store link
-    'store-name':          'なわとび専門店 OK ROPE',
+    // Store credit
+    'store-credit':        'by なわとび専門店 OK ROPE',
 
     // Sections
     'section-total-time':  '全体時間',
@@ -87,8 +87,8 @@ const TRANSLATIONS = {
     // Header
     'mobile-notice':       'Please turn off silent / mute mode on your smartphone.',
 
-    // Store link
-    'store-name':          'Jump Rope Store OK ROPE',
+    // Store credit
+    'store-credit':        'by Jump Rope Store OK ROPE',
 
     // Sections
     'section-total-time':  'Total Time',

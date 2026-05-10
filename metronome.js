@@ -97,7 +97,7 @@ class MetronomeEngine {
     this._compressor.attack.value    = 0.003;
     this._compressor.release.value   = 0.15;
     this._masterOut      = ctx.createGain();
-    this._masterOut.gain.value = 4.0; // makeup gain after compression
+    this._masterOut.gain.value = 6.0; // makeup gain after compression
     this._compressor.connect(this._masterOut);
     this._masterOut.connect(ctx.destination);
   }
