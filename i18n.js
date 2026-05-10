@@ -5,6 +5,7 @@ const TRANSLATIONS = {
 
     // Store credit
     'store-credit':        'by なわとび専門店 OK ROPE',
+    'section-howto':       '音声ファイルの作り方（Windows）',
 
     // Sections
     'section-total-time':  '全体時間',
@@ -89,6 +90,7 @@ const TRANSLATIONS = {
 
     // Store credit
     'store-credit':        'by Jump Rope Store OK ROPE',
+    'section-howto':       'How to Create an Audio File (Windows)',
 
     // Sections
     'section-total-time':  'Total Time',

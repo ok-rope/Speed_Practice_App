@@ -762,6 +762,39 @@ body {
   display: none;
 }
 
+/* ── How-to accordion ── */
+[lang="en"] .how-to-ja { display: none; }
+[lang="ja"] .how-to-en { display: none; }
+
+.howto-steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.howto-steps li {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.howto-steps strong {
+  color: var(--primary);
+}
+
+.howto-note {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-light);
+  background: var(--primary-light);
+  border-left: 3px solid var(--primary);
+  padding: 5px 8px;
+  border-radius: 0 4px 4px 0;
+  line-height: 1.5;
+}
+
 /* ── Export WIP notice ── */
 .export-wip-notice {
   font-size: 12px;
