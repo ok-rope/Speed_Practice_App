@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>なわとびメトロノーム / Jump Rope Metronome</title>
-  <link rel="stylesheet" href="style.css?v=0.15">
+  <link rel="stylesheet" href="style.css?v=0.16">
 </head>
 <body>
   <div class="app">
@@ -18,7 +18,7 @@
              data-i18n="store-credit">by なわとび専門店 OK ROPE</a>
         </h1>
         <div class="title-right">
-          <span class="app-version">Ver0.15</span>
+          <span class="app-version">Ver0.16</span>
           <div class="lang-switch">
             <span class="lang-pill"></span>
             <button class="lang-btn active" data-lang="ja">日本語</button>
@@ -194,6 +194,25 @@
 
           <div class="option-divider"></div>
 
+          <!-- 設定保存 / 読み込み -->
+          <div class="option-section">
+            <h3 class="option-section-title" data-i18n="settings-title">設定保存 / 読み込み</h3>
+            <div class="setting-label-row">
+              <span class="setting-label" data-i18n="settings-code-label">設定コード</span>
+              <span class="setting-hint" data-i18n="settings-code-hint">コピーしてメモ帳などに保存できます</span>
+            </div>
+            <textarea id="settingsCode" class="announcement-input settings-code-input"
+                      data-i18n-ph="settings-code-ph"
+                      placeholder="設定コードをここに貼り付け" rows="3"></textarea>
+            <div class="settings-actions">
+              <button id="copySettingsBtn" class="btn-sm-primary" data-i18n="settings-copy-btn">設定をコピー</button>
+              <button id="importSettingsBtn" class="btn-sm-primary" data-i18n="settings-import-btn">貼り付けた設定を読み込む</button>
+            </div>
+            <p id="settingsStatus" class="settings-status" hidden></p>
+          </div>
+
+          <div class="option-divider"></div>
+
           <!-- クリック音 -->
           <div class="option-section">
             <h3 class="option-section-title" data-i18n="opt-click-title">クリック音</h3>
@@ -276,9 +295,9 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
-  <script src="i18n.js?v=0.15"></script>
-  <script src="metronome.js?v=0.15"></script>
-  <script src="export.js?v=0.15"></script>
-  <script src="app.js?v=0.15"></script>
+  <script src="i18n.js?v=0.16"></script>
+  <script src="metronome.js?v=0.16"></script>
+  <script src="export.js?v=0.16"></script>
+  <script src="app.js?v=0.16"></script>
 </body>
 </html>

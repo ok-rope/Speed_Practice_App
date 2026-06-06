@@ -622,6 +622,31 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+.settings-code-input {
+  margin-top: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.settings-status {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.settings-status.is-error {
+  color: var(--danger);
+}
+
 /* ── Time announcements list ── */
 .time-ann-list {
   display: flex;

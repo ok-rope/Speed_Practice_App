@@ -26,6 +26,9 @@ const appState = {
 const MAX_TOTAL_SEC = 1200;
 const MIN_JUMPS = 30;
 const MAX_JUMPS = 200;
+const SETTINGS_SCHEMA_VERSION = 1;
+const SETTINGS_STORAGE_KEY = 'jumpRopeMetronome.settings.v1';
+const SETTINGS_CODE_PREFIX = 'JRMS1.';
 
 // ── Number → English words ─────────────────────────────────────────────────────
 const _ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
@@ -64,6 +67,126 @@ function normalizeJumps(v) {
   const parsed = parseFloat(v);
   const fallback = Number.isFinite(parsed) ? parsed : 80;
   return round1(Math.max(MIN_JUMPS, Math.min(MAX_JUMPS, fallback)));
+}
+
+// ── Settings persistence ─────────────────────────────────────────────────────
+function _cloneSettings() {
+  return {
+    schemaVersion: SETTINGS_SCHEMA_VERSION,
+    appVersion: '0.16',
+    totalSec: appState.totalSec,
+    segments: appState.segments.map(seg => ({
+      startSec: round1(seg.startSec),
+      endSec: round1(seg.endSec),
+      jumps: normalizeJumps(seg.jumps),
+      mode: seg.mode === 'gradient' ? 'gradient' : 'step',
+    })),
+    beepGain: appState.beepGain,
+    clickSound: appState.clickSound,
+    countdownSec: appState.countdownSec,
+    announcementText: appState.announcementText,
+    timeAnnouncements: appState.timeAnnouncements.map(ann => ({
+      timeSec: Math.max(1, Math.min(MAX_TOTAL_SEC, Math.round(parseFloat(ann.timeSec) || 1))),
+    })),
+    toggles: { ...appState.toggles },
+  };
+}
+
+function _encodeSettings(settings) {
+  const json = JSON.stringify(settings);
+  const bytes = new TextEncoder().encode(json);
+  let binary = '';
+  bytes.forEach(b => { binary += String.fromCharCode(b); });
+  return SETTINGS_CODE_PREFIX + btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function _decodeSettingsCode(code) {
+  const trimmed = (code || '').trim();
+  const payload = trimmed.startsWith(SETTINGS_CODE_PREFIX)
+    ? trimmed.slice(SETTINGS_CODE_PREFIX.length)
+    : trimmed;
+  const base64 = payload.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(payload.length / 4) * 4, '=');
+  const binary = atob(base64);
+  const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+function _sanitizeSettings(raw) {
+  if (!raw || typeof raw !== 'object') throw new Error('Invalid settings');
+  const totalSec = Math.max(1, Math.min(MAX_TOTAL_SEC, Math.round(parseFloat(raw.totalSec) || appState.totalSec)));
+  const rawSegments = Array.isArray(raw.segments) && raw.segments.length ? raw.segments : appState.segments;
+  const segments = rawSegments.map((seg, i) => {
+    const startSec = i === 0 ? 0 : round1(Math.max(0, Math.min(totalSec, parseFloat(seg.startSec) || 0)));
+    const endSec = round1(Math.max(startSec + 0.1, Math.min(totalSec, parseFloat(seg.endSec) || totalSec)));
+    return {
+      startSec,
+      endSec,
+      jumps: normalizeJumps(seg.jumps),
+      mode: seg.mode === 'gradient' ? 'gradient' : 'step',
+    };
+  }).filter(seg => seg.startSec < totalSec);
+
+  if (!segments.length) {
+    segments.push({ startSec: 0, endSec: totalSec, jumps: 80, mode: 'step' });
+  }
+  segments[0].startSec = 0;
+  for (let i = 0; i < segments.length - 1; i++) {
+    segments[i].endSec = Math.min(segments[i].endSec, segments[i + 1].startSec);
+    if (segments[i].endSec <= segments[i].startSec) segments[i].endSec = round1(segments[i].startSec + 0.1);
+    segments[i + 1].startSec = segments[i].endSec;
+  }
+  segments[segments.length - 1].endSec = totalSec;
+
+  const toggles = { ...appState.toggles, ...(raw.toggles || {}) };
+  Object.keys(toggles).forEach(key => { toggles[key] = !!toggles[key]; });
+
+  return {
+    totalSec,
+    segments,
+    beepGain: Math.max(0.5, Math.min(5.0, parseFloat(raw.beepGain) || appState.beepGain)),
+    clickSound: ['electronic', 'marimba', 'simple', 'wood', 'hihat'].includes(raw.clickSound)
+      ? raw.clickSound
+      : appState.clickSound,
+    countdownSec: Math.max(0, Math.min(10, Math.round(parseFloat(raw.countdownSec) || 0))),
+    announcementText: typeof raw.announcementText === 'string' ? raw.announcementText : appState.announcementText,
+    timeAnnouncements: Array.isArray(raw.timeAnnouncements)
+      ? raw.timeAnnouncements.map(ann => ({
+          timeSec: Math.max(1, Math.min(totalSec, Math.round(parseFloat(ann.timeSec) || 1))),
+        }))
+      : appState.timeAnnouncements,
+    toggles,
+  };
+}
+
+function applySettings(settings) {
+  const clean = _sanitizeSettings(settings);
+  Object.assign(appState, clean);
+  syncControls();
+  render();
+  saveSettings();
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(_cloneSettings()));
+  } catch (e) {
+    console.warn('Could not save settings.', e);
+  }
+}
+
+function loadSavedSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return;
+    const clean = _sanitizeSettings(JSON.parse(raw));
+    Object.assign(appState, clean);
+  } catch (e) {
+    console.warn('Could not load saved settings.', e);
+  }
+}
+
+function getSettingsCode() {
+  return _encodeSettings(_cloneSettings());
 }
 
 // ── Speech synthesis ───────────────────────────────────────────────────────────
@@ -327,6 +450,7 @@ function addSegment() {
   segs.push({ startSec: mid, endSec: last.endSec, jumps: last.jumps, mode: 'step' });
   last.endSec = mid;
   render();
+  saveSettings();
 }
 
 function removeSegment(i) {
@@ -335,6 +459,7 @@ function removeSegment(i) {
   if (i === 0) { segs.splice(0, 1); segs[0].startSec = 0; }
   else         { segs[i - 1].endSec = segs[i].endSec; segs.splice(i, 1); }
   render();
+  saveSettings();
 }
 
 function updateSegEnd(i, val) {
@@ -344,6 +469,7 @@ function updateSegEnd(i, val) {
   segs[i].endSec       = Math.round(clamped * 10) / 10;
   segs[i + 1].startSec = segs[i].endSec;
   render();
+  saveSettings();
 }
 
 function updateTotalSec(v) {
@@ -353,6 +479,8 @@ function updateTotalSec(v) {
   while (segs.length > 1 && segs[segs.length - 1].startSec >= v) segs.pop();
   segs[segs.length - 1].endSec = v;
   render();
+  syncControls();
+  saveSettings();
 }
 
 // ── Time announcements CRUD ────────────────────────────────────────────────────
@@ -362,6 +490,7 @@ function addTimeAnn() {
   while (existing.includes(t) && t <= appState.totalSec) t += 10;
   appState.timeAnnouncements.push({ timeSec: Math.min(t, appState.totalSec) });
   renderTimeAnnouncements();
+  saveSettings();
 }
 
 function renderTimeAnnouncements() {
@@ -385,6 +514,7 @@ function renderTimeAnnouncements() {
       const v = Math.max(1, Math.min(MAX_TOTAL_SEC, Math.round(parseFloat(inp.value) || 1)));
       appState.timeAnnouncements[+inp.dataset.idx].timeSec = v;
       inp.value = v;
+      saveSettings();
     })
   );
 
@@ -392,6 +522,7 @@ function renderTimeAnnouncements() {
     btn.addEventListener('click', () => {
       appState.timeAnnouncements.splice(+btn.dataset.idx, 1);
       renderTimeAnnouncements();
+      saveSettings();
     })
   );
 }
@@ -470,6 +601,7 @@ function renderSegments() {
       renderSegments();
       renderTimeline();
       renderCanvas();
+      saveSettings();
     })
   );
   container.querySelectorAll('.mode-btn').forEach(btn =>
@@ -478,6 +610,7 @@ function renderSegments() {
       renderSegments();
       renderTimeline();
       renderCanvas();
+      saveSettings();
     })
   );
 }
@@ -646,9 +779,74 @@ async function onExport() {
   }
 }
 
+function syncControls() {
+  const totalSecEl = document.getElementById('totalSec');
+  if (!totalSecEl) return;
+  totalSecEl.value = appState.totalSec;
+  document.getElementById('announcementText').value = appState.announcementText;
+  document.getElementById('countdownSec').value = appState.countdownSec;
+  document.getElementById('togAnnouncement').checked = appState.toggles.announcement;
+  document.getElementById('togCountdown').checked = appState.toggles.countdown;
+  document.getElementById('togBeepStart').checked = appState.toggles.beepStart;
+  document.getElementById('togBeepTransition').checked = appState.toggles.beepTransition;
+  document.getElementById('togBeepEnd').checked = appState.toggles.beepEnd;
+  document.getElementById('togVoiceCount').checked = appState.toggles.voiceCount;
+  document.getElementById('togVoiceTime').checked = appState.toggles.voiceTime;
+
+  document.querySelectorAll('input[name="clickSound"]').forEach(r => {
+    r.checked = r.value === appState.clickSound;
+  });
+
+  const beepSlider = document.getElementById('beepGainSlider');
+  const beepValEl  = document.getElementById('beepGainVal');
+  beepSlider.value = appState.beepGain;
+  beepValEl.textContent = '×' + appState.beepGain.toFixed(1);
+}
+
+function showSettingsStatus(message, isError = false) {
+  const status = document.getElementById('settingsStatus');
+  if (!status) return;
+  status.hidden = false;
+  status.textContent = message;
+  status.classList.toggle('is-error', isError);
+  clearTimeout(showSettingsStatus._timer);
+  showSettingsStatus._timer = setTimeout(() => { status.hidden = true; }, 3500);
+}
+
+async function onCopySettings() {
+  const code = getSettingsCode();
+  const out = document.getElementById('settingsCode');
+  out.value = code;
+  out.select();
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(code);
+    } else {
+      document.execCommand('copy');
+    }
+    showSettingsStatus(t('settings-copy-ok'));
+  } catch (e) {
+    showSettingsStatus(t('settings-copy-manual'));
+  }
+}
+
+function onImportSettings() {
+  const code = document.getElementById('settingsCode').value;
+  try {
+    applySettings(_decodeSettingsCode(code));
+    showSettingsStatus(t('settings-import-ok'));
+  } catch (e) {
+    console.warn(e);
+    showSettingsStatus(t('settings-import-error'), true);
+  }
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  loadSavedSettings();
   render();
+  syncControls();
 
   // Total time
   document.getElementById('totalSec').addEventListener('change', e => {
@@ -663,6 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Announcement text
   document.getElementById('announcementText').addEventListener('input', e => {
     appState.announcementText = e.target.value;
+    saveSettings();
   });
 
   // Countdown duration (integer seconds)
@@ -670,6 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const v = Math.max(0, Math.min(10, Math.round(parseFloat(e.target.value) || 0)));
     appState.countdownSec = v;
     e.target.value = v;
+    saveSettings();
   });
 
   // Time announcement add
@@ -678,29 +878,39 @@ document.addEventListener('DOMContentLoaded', () => {
   // Toggles
   document.getElementById('togAnnouncement').addEventListener('change', e => {
     appState.toggles.announcement = e.target.checked;
+    saveSettings();
   });
   document.getElementById('togCountdown').addEventListener('change', e => {
     appState.toggles.countdown = e.target.checked;
+    saveSettings();
   });
   document.getElementById('togBeepStart').addEventListener('change', e => {
     appState.toggles.beepStart = e.target.checked;
+    saveSettings();
   });
   document.getElementById('togBeepTransition').addEventListener('change', e => {
     appState.toggles.beepTransition = e.target.checked;
+    saveSettings();
   });
   document.getElementById('togBeepEnd').addEventListener('change', e => {
     appState.toggles.beepEnd = e.target.checked;
+    saveSettings();
   });
   document.getElementById('togVoiceCount').addEventListener('change', e => {
     appState.toggles.voiceCount = e.target.checked;
+    saveSettings();
   });
   document.getElementById('togVoiceTime').addEventListener('change', e => {
     appState.toggles.voiceTime = e.target.checked;
+    saveSettings();
   });
 
   // Click sound
   document.querySelectorAll('input[name="clickSound"]').forEach(r =>
-    r.addEventListener('change', () => { appState.clickSound = r.value; })
+    r.addEventListener('change', () => {
+      appState.clickSound = r.value;
+      saveSettings();
+    })
   );
 
   // Language toggle
@@ -715,7 +925,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const v = parseFloat(beepSlider.value);
     appState.beepGain = v;
     beepValEl.textContent = '×' + v.toFixed(1);
+    saveSettings();
   });
+
+  document.getElementById('copySettingsBtn').addEventListener('click', onCopySettings);
+  document.getElementById('importSettingsBtn').addEventListener('click', onImportSettings);
 
   // Playback
   document.getElementById('playBtn').addEventListener('click', onPlay);

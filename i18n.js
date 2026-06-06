@@ -47,6 +47,18 @@ const TRANSLATIONS = {
     'tog-vt-name':         '時間アナウンス',
     'tog-vt-desc':         '指定した時間を英語で読上げ',
 
+    // Settings import/export
+    'settings-title':      '設定保存 / 読み込み',
+    'settings-code-label': '設定コード',
+    'settings-code-hint':  'コピーしてメモ帳などに保存できます',
+    'settings-code-ph':    '設定コードをここに貼り付け',
+    'settings-copy-btn':   '設定をコピー',
+    'settings-import-btn': '貼り付けた設定を読み込む',
+    'settings-copy-ok':    '設定コードをコピーしました。',
+    'settings-copy-manual':'コピーできない場合は、表示されたコードを手動でコピーしてください。',
+    'settings-import-ok':  '設定を読み込みました。',
+    'settings-import-error':'設定コードを読み込めませんでした。',
+
     // Click sound
     'opt-click-title':     'クリック音',
     'click-electronic':    '電子音',
@@ -133,6 +145,18 @@ const TRANSLATIONS = {
     'tog-vc-desc':         'Announce jump count at start / change',
     'tog-vt-name':         'Time Call Voice',
     'tog-vt-desc':         'Announce elapsed time in English',
+
+    // Settings import/export
+    'settings-title':      'Save / Load Settings',
+    'settings-code-label': 'Settings Code',
+    'settings-code-hint':  'Copy and save it in Notes or another app',
+    'settings-code-ph':    'Paste a settings code here',
+    'settings-copy-btn':   'Copy Settings',
+    'settings-import-btn': 'Load Pasted Settings',
+    'settings-copy-ok':    'Settings code copied.',
+    'settings-copy-manual':'If copying failed, copy the displayed code manually.',
+    'settings-import-ok':  'Settings loaded.',
+    'settings-import-error':'Could not load the settings code.',
 
     // Click sound
     'opt-click-title':     'Click Sound',
