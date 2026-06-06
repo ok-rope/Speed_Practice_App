@@ -23,6 +23,8 @@ const appState = {
   },
 };
 
+const MAX_TOTAL_SEC = 1200;
+
 // ── Number → English words ─────────────────────────────────────────────────────
 const _ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
                'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
@@ -318,7 +320,7 @@ function updateSegEnd(i, val) {
 }
 
 function updateTotalSec(v) {
-  v = Math.max(1, Math.min(300, Math.round(v)));
+  v = Math.max(1, Math.min(MAX_TOTAL_SEC, Math.round(v)));
   appState.totalSec = v;
   const segs = appState.segments;
   while (segs.length > 1 && segs[segs.length - 1].startSec >= v) segs.pop();
@@ -344,7 +346,7 @@ function renderTimeAnnouncements() {
     item.className = 'time-ann-item';
     item.innerHTML = `
       <input type="number" class="input-number ann-time" data-idx="${i}"
-             value="${ann.timeSec}" min="1" max="300" step="1" inputmode="numeric">
+             value="${ann.timeSec}" min="1" max="${MAX_TOTAL_SEC}" step="1" inputmode="numeric">
       <span class="unit">${t('unit-sec')}</span>
       <button class="btn-remove ann-del" data-idx="${i}">${t('btn-delete-ann')}</button>
     `;
@@ -353,7 +355,7 @@ function renderTimeAnnouncements() {
 
   list.querySelectorAll('.ann-time').forEach(inp =>
     inp.addEventListener('change', () => {
-      const v = Math.max(1, Math.min(300, Math.round(parseFloat(inp.value) || 1)));
+      const v = Math.max(1, Math.min(MAX_TOTAL_SEC, Math.round(parseFloat(inp.value) || 1)));
       appState.timeAnnouncements[+inp.dataset.idx].timeSec = v;
       inp.value = v;
     })
@@ -398,7 +400,7 @@ function renderSegments() {
         <div class="segment-field">
           <label>${t('seg-end')}</label>
           <input type="number" class="input-number seg-end" data-idx="${i}"
-                 value="${seg.endSec}" step="0.1" min="0.1" max="300"
+                 value="${seg.endSec}" step="0.1" min="0.1" max="${MAX_TOTAL_SEC}"
                  ${isLast ? 'readonly' : ''} inputmode="decimal">
         </div>
       </div>
