@@ -24,6 +24,8 @@ const appState = {
 };
 
 const MAX_TOTAL_SEC = 1200;
+const MIN_JUMPS = 30;
+const MAX_JUMPS = 200;
 
 // ── Number → English words ─────────────────────────────────────────────────────
 const _ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
@@ -32,14 +34,36 @@ const _ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight
 const _TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty',
                'sixty', 'seventy', 'eighty', 'ninety'];
 
-function numToWords(n) {
-  n = Math.round(n);
+function integerToWords(n) {
   if (n === 0) return 'zero';
   if (n < 20)  return _ONES[n];
   if (n < 100) return _TENS[Math.floor(n / 10)] + (n % 10 ? ' ' + _ONES[n % 10] : '');
   const h = Math.floor(n / 100);
   const r = n % 100;
-  return _ONES[h] + ' hundred' + (r ? ' ' + numToWords(r) : '');
+  return _ONES[h] + ' hundred' + (r ? ' ' + integerToWords(r) : '');
+}
+
+function numToWords(n) {
+  n = Math.round(Number(n) * 10) / 10;
+  if (!Number.isFinite(n)) return '';
+  const whole = Math.trunc(n);
+  const frac  = Math.round((n - whole) * 10);
+  return frac ? `${integerToWords(whole)} point ${integerToWords(frac)}` : integerToWords(whole);
+}
+
+function round1(n) {
+  return Math.round(n * 10) / 10;
+}
+
+function formatNumber(n) {
+  const rounded = round1(Number(n));
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function normalizeJumps(v) {
+  const parsed = parseFloat(v);
+  const fallback = Number.isFinite(parsed) ? parsed : 80;
+  return round1(Math.max(MIN_JUMPS, Math.min(MAX_JUMPS, fallback)));
 }
 
 // ── Speech synthesis ───────────────────────────────────────────────────────────
@@ -272,7 +296,10 @@ function _updatePlayInfo(elapsed) {
   const seg    = segs[idx];
   const remain = Math.max(0, appState.totalSec - elapsed).toFixed(1);
 
-  document.getElementById('infoJumps').innerHTML  = t('jumps-info', {j: seg.jumps, b: seg.jumps * 2});
+  document.getElementById('infoJumps').innerHTML  = t('jumps-info', {
+    j: formatNumber(seg.jumps),
+    b: formatNumber(seg.jumps * 2),
+  });
   document.getElementById('infoRemain').innerHTML = t('remain-info', {n: remain});
   document.getElementById('infoSeg').innerHTML    = t('seg-info',   {a: idx + 1,  b: segs.length});
 }
@@ -408,9 +435,10 @@ function renderSegments() {
         <div class="segment-field">
           <label>${t('seg-jumps')}</label>
           <input type="number" class="input-number seg-jumps" data-idx="${i}"
-                 value="${seg.jumps}" min="30" max="200" inputmode="numeric">
+                 value="${formatNumber(seg.jumps)}" min="${MIN_JUMPS}" max="${MAX_JUMPS}"
+                 step="0.1" inputmode="decimal">
         </div>
-        <span class="bpm-badge">= BPM <strong>${seg.jumps * 2}</strong></span>
+        <span class="bpm-badge">= BPM <strong>${formatNumber(seg.jumps * 2)}</strong></span>
       </div>
       <div class="segment-mode-row">
         <span class="mode-label">${t('seg-mode')}</span>
@@ -437,7 +465,7 @@ function renderSegments() {
   container.querySelectorAll('.seg-jumps').forEach(inp =>
     inp.addEventListener('change', () => {
       const idx = +inp.dataset.idx;
-      const v   = Math.round(Math.max(30, Math.min(200, parseInt(inp.value) || 80)));
+      const v   = normalizeJumps(inp.value);
       appState.segments[idx].jumps = v;
       renderSegments();
       renderTimeline();
@@ -467,7 +495,7 @@ function renderTimeline() {
     div.className    = 'timeline-seg';
     div.style.width  = (dur / totalSec * 100).toFixed(3) + '%';
     div.style.background = segBg(seg, i < segments.length - 1 ? segments[i + 1].jumps : null);
-    div.textContent  = dur > 0 ? `${seg.jumps}回` : '';
+    div.textContent  = dur > 0 ? `${formatNumber(seg.jumps)}回` : '';
     segsEl.appendChild(div);
   });
 
