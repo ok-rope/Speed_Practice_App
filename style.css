@@ -433,11 +433,7 @@ body {
   border: 2px solid var(--border);
 }
 
-.btn-export {
-  background: var(--primary);
-  color: #fff;
-  margin-top: 10px;
-}
+
 
 .controls-row {
   display: grid;
@@ -821,27 +817,10 @@ body {
 }
 
 /* ── Export WIP notice ── */
-.export-wip-notice {
-  font-size: 12px;
-  font-weight: 700;
-  color: #b45309;
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
-  border-radius: 6px;
-  padding: 6px 10px;
-  text-align: center;
-}
+
 
 /* ── Export status ── */
-.export-status {
-  margin-top: 10px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: var(--bg);
-  font-size: 14px;
-  text-align: center;
-  color: var(--text-light);
-}
+
 
 /* ── Options accordion ── */
 .options-accordion {

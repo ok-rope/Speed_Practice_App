@@ -73,7 +73,7 @@ function normalizeJumps(v) {
 function _cloneSettings() {
   return {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
-    appVersion: '0.16',
+    appVersion: '0.17',
     totalSec: appState.totalSec,
     segments: appState.segments.map(seg => ({
       startSec: round1(seg.startSec),
@@ -151,7 +151,7 @@ function _sanitizeSettings(raw) {
     announcementText: typeof raw.announcementText === 'string' ? raw.announcementText : appState.announcementText,
     timeAnnouncements: Array.isArray(raw.timeAnnouncements)
       ? raw.timeAnnouncements.map(ann => ({
-          timeSec: Math.max(1, Math.min(totalSec, Math.round(parseFloat(ann.timeSec) || 1))),
+          timeSec: Math.max(1, Math.min(MAX_TOTAL_SEC, Math.round(parseFloat(ann.timeSec) || 1))),
         }))
       : appState.timeAnnouncements,
     toggles,
@@ -420,8 +420,8 @@ function _updatePlayInfo(elapsed) {
   const remain = Math.max(0, appState.totalSec - elapsed).toFixed(1);
 
   document.getElementById('infoJumps').innerHTML  = t('jumps-info', {
-    j: formatNumber(seg.jumps),
-    b: formatNumber(seg.jumps * 2),
+    j: formatNumber(jumpsAt(segs, elapsed)),
+    b: formatNumber(jumpsAt(segs, elapsed) * 2),
   });
   document.getElementById('infoRemain').innerHTML = t('remain-info', {n: remain});
   document.getElementById('infoSeg').innerHTML    = t('seg-info',   {a: idx + 1,  b: segs.length});
@@ -533,6 +533,7 @@ function render() {
   renderTimeline();
   renderTimeAnnouncements();
   renderCanvas();
+  syncEditingLock();
 }
 
 function renderSegments() {
@@ -645,6 +646,24 @@ function renderTimeline() {
 
 // ── Playback controls ──────────────────────────────────────────────────────────
 let _awaitingStart  = false;
+let _playRunId = 0;
+let _introTimer = null;
+
+function syncEditingLock() {
+  const locked = appState.playState === 'playing';
+  document.querySelectorAll('main input, main textarea, main button').forEach(el => {
+    if (el.id === 'playBtn' || el.id === 'stopBtn') return;
+    if (locked) {
+      if (!el.hasAttribute('data-playback-disabled')) {
+        el.dataset.playbackDisabled = String(el.disabled);
+      }
+      el.disabled = true;
+    } else if (el.hasAttribute('data-playback-disabled')) {
+      el.disabled = el.dataset.playbackDisabled === 'true';
+      delete el.dataset.playbackDisabled;
+    }
+  });
+}
 let _iosUnlocked    = false;
 
 // Plays a silent <audio> element so iOS sets AudioSession to 'playback' category,
@@ -681,7 +700,9 @@ function onPlay() {
   metronome._ensureCtx();
   warmupSpeech();
   appState.playState = 'playing';
+  const runId = ++_playRunId;
   _awaitingStart = true;
+  syncEditingLock();
 
   const playhead = document.getElementById('playhead');
   playhead.style.left = '0%';
@@ -692,10 +713,16 @@ function onPlay() {
   document.getElementById('stopBtn').disabled = false;
 
   function beginMetronome() {
-    if (!_awaitingStart) return;
+    if (!_awaitingStart || runId !== _playRunId) return;
+    clearTimeout(_introTimer);
+    _introTimer = null;
     _awaitingStart = false;
     metronome.start(appState, onPlayEnd).then(() => {
-      if (appState.playState === 'playing') startRAF();
+      if (runId === _playRunId && appState.playState === 'playing') startRAF();
+    }).catch(error => {
+      if (runId !== _playRunId) return;
+      console.error('Playback failed.', error);
+      onStop();
     });
   }
 
@@ -705,9 +732,10 @@ function onPlay() {
     u.lang  = 'en-US';
     u.rate  = 0.95;
     const fallbackMs = Math.min(6000, Math.max(1200, text.length * 90));
-    const startTimer = setTimeout(beginMetronome, fallbackMs);
+    _introTimer = setTimeout(beginMetronome, fallbackMs);
     const finishIntro = () => {
-      clearTimeout(startTimer);
+      if (runId !== _playRunId) return;
+      clearTimeout(_introTimer);
       beginMetronome();
     };
     u.onend = finishIntro;
@@ -730,6 +758,12 @@ function onStop() {
 function onPlayEnd() {
   if (appState.playState === 'stopped') return;
   appState.playState = 'stopped';
+  _playRunId++;
+  _awaitingStart = false;
+  clearTimeout(_introTimer);
+  _introTimer = null;
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  syncEditingLock();
   stopRAF();
   renderCanvas();
 
@@ -738,45 +772,6 @@ function onPlayEnd() {
   document.getElementById('playBtn').disabled = false;
   document.getElementById('stopBtn').disabled = true;
 
-  if (typeof window.__exportDoneHook === 'function') {
-    window.__exportDoneHook();
-  }
-}
-
-// ── Export ─────────────────────────────────────────────────────────────────────
-async function onExport() {
-  if (appState.playState === 'playing') {
-    const status = document.getElementById('exportStatus');
-    status.hidden = false;
-    status.textContent = t('exp-playing');
-    setTimeout(() => { status.hidden = true; }, 3000);
-    return;
-  }
-
-  const btn    = document.getElementById('exportBtn');
-  const status = document.getElementById('exportStatus');
-  btn.disabled  = true;
-  status.hidden = false;
-
-  const canCapture = !!navigator.mediaDevices?.getDisplayMedia;
-  status.textContent = canCapture ? t('exp-capturing') : t('exp-generating');
-
-  try {
-    await exportMP3(appState);
-    status.textContent = t('exp-started');
-  } catch (e) {
-    if (e.name === 'NotAllowedError' || e.name === 'AbortError') {
-      status.textContent = t('exp-cancelled');
-    } else if (e.name === 'NoAudio') {
-      status.textContent = t('exp-no-audio');
-    } else {
-      console.error(e);
-      status.textContent = t('exp-error') + e.message;
-    }
-  } finally {
-    btn.disabled = false;
-    setTimeout(() => { status.hidden = true; }, 5000);
-  }
 }
 
 function syncControls() {
@@ -934,7 +929,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Playback
   document.getElementById('playBtn').addEventListener('click', onPlay);
   document.getElementById('stopBtn').addEventListener('click', onStop);
-  document.getElementById('exportBtn').addEventListener('click', onExport);
 
   // Redraw canvas on window resize
   window.addEventListener('resize', () => renderCanvas());

@@ -17,7 +17,6 @@ const TRANSLATIONS = {
     'btn-add-seg':         '＋ セグメント追加',
     'btn-play':            '▶ 再生',
     'btn-stop':            '⏹ 停止',
-    'btn-export':          '⬇ MP3ダウンロード',
 
     // Options
     'options-label':       'オプション',
@@ -85,17 +84,7 @@ const TRANSLATIONS = {
     'remain-info':         '残り <strong>{n}</strong> 秒',
     'seg-info':            'セグメント <strong>{a} / {b}</strong>',
 
-    // Export WIP notice
-    'exp-wip':             '⚠ MP3ダウンロード機能は現在未完成です',
 
-    // Export status
-    'exp-playing':         '再生中はエクスポートできません。停止してから実行してください。',
-    'exp-capturing':       'ブラウザの共有ダイアログで「このタブ」を選択してください...',
-    'exp-generating':      '音声を生成中...',
-    'exp-started':         'ダウンロードを開始しました。',
-    'exp-cancelled':       '録音がキャンセルされました。',
-    'exp-no-audio':        'タブ音声が取得できませんでした。「このタブ」と音声共有を選択してください。',
-    'exp-error':           'エラー: ',
   },
 
   en: {
@@ -116,7 +105,6 @@ const TRANSLATIONS = {
     'btn-add-seg':         '＋ Add Segment',
     'btn-play':            '▶ Play',
     'btn-stop':            '⏹ Stop',
-    'btn-export':          '⬇ Download MP3',
 
     // Options
     'options-label':       'Options',
@@ -184,17 +172,7 @@ const TRANSLATIONS = {
     'remain-info':         '<strong>{n}</strong> sec left',
     'seg-info':            'Segment <strong>{a} / {b}</strong>',
 
-    // Export WIP notice
-    'exp-wip':             '⚠ MP3 download is not yet complete',
 
-    // Export status
-    'exp-playing':         'Cannot export while playing. Please stop first.',
-    'exp-capturing':       'Select "This Tab" in the browser share dialog...',
-    'exp-generating':      'Generating audio...',
-    'exp-started':         'Download started.',
-    'exp-cancelled':       'Recording cancelled.',
-    'exp-no-audio':        'Could not capture tab audio. Select "This Tab" with audio sharing.',
-    'exp-error':           'Error: ',
   },
 };
 

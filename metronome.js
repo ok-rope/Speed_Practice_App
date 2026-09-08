@@ -1,8 +1,27 @@
+// Track scheduled sources so stopping also cancels sounds queued in Web Audio.
+const scheduledSources = new WeakMap();
+function trackSource(ctx, source) {
+  if (!scheduledSources.has(ctx)) scheduledSources.set(ctx, new Set());
+  const sources = scheduledSources.get(ctx);
+  sources.add(source);
+  source.onended = () => { sources.delete(source); source.disconnect(); };
+  return source;
+}
+
+function jumpsAt(segments, elapsed) {
+  let index = 0;
+  while (index < segments.length - 1 && elapsed >= segments[index + 1].startSec) index++;
+  const seg = segments[index];
+  if (seg.mode !== 'gradient' || index === segments.length - 1) return seg.jumps;
+  const progress = Math.max(0, Math.min(1, (elapsed - seg.startSec) / (seg.endSec - seg.startSec)));
+  return seg.jumps + (segments[index + 1].jumps - seg.jumps) * progress;
+}
+
 // ── BEEP signal ───────────────────────────────────────────────────────────────
 function scheduleBeep(ctx, time, dest, beepGain) {
   dest     = dest     || ctx.destination;
   beepGain = beepGain != null ? beepGain : 1.8;
-  const osc  = ctx.createOscillator();
+  const osc  = trackSource(ctx, ctx.createOscillator());
   const gain = ctx.createGain();
   osc.connect(gain);
   gain.connect(dest);
@@ -28,7 +47,7 @@ function scheduleClick(ctx, time, type, dest) {
 }
 
 function _clickElectronic(ctx, time, dest) {
-  const osc  = ctx.createOscillator();
+  const osc  = trackSource(ctx, ctx.createOscillator());
   const gain = ctx.createGain();
   osc.connect(gain);
   gain.connect(dest);
@@ -40,7 +59,7 @@ function _clickElectronic(ctx, time, dest) {
 }
 
 function _clickMarimba(ctx, time, dest) {
-  const osc  = ctx.createOscillator();
+  const osc  = trackSource(ctx, ctx.createOscillator());
   const gain = ctx.createGain();
   osc.connect(gain);
   gain.connect(dest);
@@ -58,7 +77,7 @@ function _clickSimple(ctx, time, dest) {
   const buf  = ctx.createBuffer(1, sz, ctx.sampleRate);
   const data = buf.getChannelData(0);
   for (let i = 0; i < sz; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / sz);
-  const src  = ctx.createBufferSource();
+  const src  = trackSource(ctx, ctx.createBufferSource());
   const gain = ctx.createGain();
   src.buffer = buf;
   src.connect(gain);
@@ -69,7 +88,7 @@ function _clickSimple(ctx, time, dest) {
 
 // "tok" — triangle wave with pitch sweep, like a wood block
 function _clickWood(ctx, time, dest) {
-  const osc  = ctx.createOscillator();
+  const osc  = trackSource(ctx, ctx.createOscillator());
   const gain = ctx.createGain();
   osc.connect(gain);
   gain.connect(dest);
@@ -89,7 +108,7 @@ function _clickHihat(ctx, time, dest) {
   const buf    = ctx.createBuffer(1, sz, ctx.sampleRate);
   const data   = buf.getChannelData(0);
   for (let i = 0; i < sz; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / sz);
-  const src    = ctx.createBufferSource();
+  const src    = trackSource(ctx, ctx.createBufferSource());
   const filter = ctx.createBiquadFilter();
   const gain   = ctx.createGain();
   src.buffer   = buf;
@@ -116,6 +135,8 @@ class MetronomeEngine {
     this._stopped        = true;
     this._beatCount      = 0;
     this._endScheduled   = false;
+    this._runId = 0;
+    this._finishTimer = null;
     this._compressor     = null;
     this._masterOut      = null;
   }
@@ -171,6 +192,9 @@ _ensureCtx() {
   }
 
   start(state, onFinish) {
+    this.stop();
+    const runId = this._runId;
+    state = JSON.parse(JSON.stringify(state));
     this.state         = state;
     this.onFinish      = onFinish;
     this._stopped      = false;
@@ -193,11 +217,22 @@ _ensureCtx() {
     };
 
     return this._ensureCtx().then(() => {
-      if (!this._stopped) doSchedule();
+      if (!this._stopped && runId === this._runId) doSchedule();
     });
   }
 
   stop() {
+    this._runId++;
+    clearTimeout(this._finishTimer);
+    this._finishTimer = null;
+    const sources = scheduledSources.get(this.audioCtx);
+    if (sources) {
+      for (const source of sources) {
+        try { source.stop(); } catch (_) {}
+        source.disconnect();
+      }
+      sources.clear();
+    }
     this._stopped = true;
     if (this.schedulerTimer) {
       clearInterval(this.schedulerTimer);
@@ -219,21 +254,23 @@ _ensureCtx() {
     const dest = this.destination;
     const gain = beepGain != null ? beepGain : 1.8;
 
+    // Schedule the end independently of the next beat, at the exact deadline.
+    const endTime = this.startAudioTime + totalSec;
+    if (!this._endScheduled && endTime < this.audioCtx.currentTime + LOOKAHEAD) {
+      this._endScheduled = true;
+      if (toggles.beepEnd) scheduleBeep(this.audioCtx, endTime, dest, gain);
+      const runId = this._runId;
+      this._finishTimer = setTimeout(() => {
+        if (runId !== this._runId) return;
+        const finish = this.onFinish;
+        this.stop();
+        if (finish) finish();
+      }, Math.max(0, (endTime - this.audioCtx.currentTime + 0.35) * 1000));
+    }
+
     while (this.nextBeatTime < this.audioCtx.currentTime + LOOKAHEAD) {
       const elapsed = this.nextBeatTime - this.startAudioTime;
-
-      // ── End ──
-      if (elapsed >= totalSec) {
-        if (!this._endScheduled) {
-          this._endScheduled = true;
-          const beepT = Math.max(this.startAudioTime + totalSec, this.audioCtx.currentTime + 0.02);
-          if (toggles.beepEnd) scheduleBeep(this.audioCtx, beepT, dest, gain);
-          const delayMs = Math.max(0, (beepT - this.audioCtx.currentTime + 0.35) * 1000);
-          this.stop();
-          if (this.onFinish) setTimeout(this.onFinish, delayMs);
-        }
-        return;
-      }
+      if (elapsed >= totalSec) return;
 
       // ── Advance segment ──
       const prevIdx = this._segIdx;
@@ -266,19 +303,7 @@ _ensureCtx() {
   }
 
   _intervalAt(elapsed) {
-    const { segments } = this.state;
-    const seg = segments[this._segIdx];
-    if (seg.mode === 'gradient' && this._segIdx < segments.length - 1) {
-      const nextSeg    = segments[this._segIdx + 1];
-      const startBPM   = seg.jumps * 2;
-      const endBPM     = nextSeg.jumps * 2;
-      const segDur     = seg.endSec - seg.startSec;
-      const segElapsed = elapsed - seg.startSec;
-      const progress   = segDur > 0 ? Math.min(segElapsed / segDur, 1) : 0;
-      const bpm        = startBPM + (endBPM - startBPM) * progress;
-      return 60 / Math.max(bpm, 1);
-    }
-    return 60 / (seg.jumps * 2);
+    return 60 / (jumpsAt(this.state.segments, elapsed) * 2);
   }
 }
 
