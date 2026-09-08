@@ -1,16 +1,8 @@
-> **Ver0.17 更新（2026-09-08）**
-> MP3出力機能・UI・lamejs依存を削除しました。以下の旧MP3仕様は履歴です。
-> 再生中（開始アナウンス・カウントダウンを含む）は設定編集を無効化し、停止後に解除します。
-> 終了BEEPはビート間隔に依存せず終了時刻に予約します。停止時は予約音源・終了通知・開始待ちを解除します。
-> 時間アナウンスは入力・保存・読込で1〜1200秒を維持し、全体時間を超える指定は再生しません。
-> グラデーション中の表示と再生テンポは共通の補間処理を使います。
-> 回帰テスト: `node --test tests/regression.cjs`（アプリのディレクトリで実行）。
-
 # なわとびスピード練習メトロノーム - 仕様書
 
-**バージョン：** 3.0  
-**作成日：** 2026-05-09  
-**更新日：** 2026-05-10（Ver0.12: クリック音5種・BEEP音量スライダー・i18n・iOS音声セッション解除・setTimeout音声スケジューリング）
+**仕様書バージョン：** 3.1（アプリ Ver0.17）
+**作成日：** 2026-05-09
+**更新日：** 2026-09-08（現行仕様・ブラウザ検証結果を反映）
 
 ---
 
@@ -22,9 +14,9 @@
 ### 1.2 動作環境
 | 対象 | 要件 |
 |---|---|
-| PC ブラウザ | Chrome 90+ / Firefox 88+ / Edge 90+ / Safari 14+ |
-| スマートフォン | iOS Safari 14+ / Android Chrome 90+ |
-| インターネット | 初回読み込み時のみ必要（lamejs CDN取得） |
+| PC ブラウザ | ChromeでVer0.17を確認。その他のブラウザ・最低バージョンは今回未検証 |
+| スマートフォン | iOS Safari / Android Chromeを想定。Ver0.17の実機検証は未実施 |
+| インターネット | 公開ページの取得に必要。外部JSライブラリなし。オフライン動作は保証しない |
 | サーバー | 不要（静的ファイルのみ） |
 
 ---
@@ -50,7 +42,7 @@ BPM = 回数（回/分） × 2
 | パラメータ | 最小 | 最大 | デフォルト |
 |---|---|---|---|
 | 回数（回/分） | 30 | 200 | 80 |
-| 全体時間（秒） | 1 | 300 | 30 |
+| 全体時間（秒） | 1 | 1200 | 30 |
 | カウントダウン（秒） | 0 | 10 | 3（整数のみ） |
 
 ---
@@ -103,7 +95,7 @@ interval = 60 / bpm  // 秒
     { startSec: 10, endSec: 20, jumps: 70, mode: 'step' },
     { startSec: 20, endSec: 30, jumps: 60, mode: 'step' },
   ],
-  beepGain:          2.5,           // BEEP/クリック音共通ゲイン（0.5〜5.0）
+  beepGain:          2.5,           // BEEP音のゲイン（0.5〜5.0）
   clickSound:        'electronic',  // "electronic"|"marimba"|"simple"|"wood"|"hihat"
   playState:         'stopped',     // "stopped" | "playing"
   countdownSec:      3,             // 整数 0〜10
@@ -126,17 +118,22 @@ interval = 60 / bpm  // 秒
 ユーザー操作 → State更新 → UI再描画（セグメント・タイムライン・キャンバス）
 再生ボタン  → [iOS解除] → [アナウンスTTS] → [カウントダウン] → メトロノームエンジン起動
 停止ボタン  → speechSynthesis.cancel() → 音声タイマークリア → メトロノームエンジン停止
-DLボタン   → OfflineAudioContext → lamejs MP3エンコード → ダウンロード
 ```
 
 ---
+
+### 4.3 再生中の編集制限と停止
+- 開始アナウンス・カウントダウンを含む再生中は、設定入力、セグメント追加・削除、設定コード操作を無効化する。
+- 言語切替と停止は利用可能。再描画時も編集制限を維持し、終了後は各操作の元の有効・無効状態に戻す。
+- エンジンは開始時に設定をコピーする。再生ごとの識別子で古い非同期開始処理・終了通知を無効化する。
+- 停止時はビート用interval、終了タイマー、開始待ちタイマー、TTSタイマー、予約済み音源を解除し、発話もキャンセルする。
 
 ## 5. 音声仕様
 
 ### 5.1 クリック音の種類（5種）
 | 種類 | キー | 生成方法 |
 |---|---|---|
-| 電子音 | `electronic` | OscillatorNode square 1000Hz、gain=2.5、50ms指数減衰 |
+| 電子音 | `electronic` | OscillatorNode sine（既定波形）1000Hz、gain=2.5、50ms指数減衰 |
 | 木琴風 | `marimba` | OscillatorNode sine 880Hz、gain=2.5、280ms指数減衰 |
 | シンプル | `simple` | ホワイトノイズバッファ、gain=2.0、18ms線形減衰 |
 | ウッド | `wood` | OscillatorNode triangle、周波数sweep 800→400Hz（40ms）、gain=2.5 |
@@ -176,7 +173,9 @@ AudioContext.destination（スピーカー）
 - `AudioContext.currentTime` を基準
 - スケジュールアヘッド：100ms
 - スケジューラー間隔：25ms（`setInterval`）
-- グラデーション時：ビートごとに次ビートまでの間隔を計算
+- グラデーション時：共通関数 `jumpsAt(segments, elapsed)` で回数を補間し、ビートごとに次の間隔を計算。
+- 終了BEEPは次のビート時刻から独立して、`startAudioTime + totalSec` を100ms先読み範囲に入った時点で予約する。
+- 自然終了の後処理は終了予定時刻の350ms後。メインスレッド停止や音声デバイスの遅延を含む実音精度は未計測。
 
 ---
 
@@ -206,13 +205,11 @@ AudioContext.destination（スピーカー）
 RAFループ内ではなく、`startRAF()` 冒頭の `_scheduleSpeechWithTimers()` で実行。
 
 ```js
-// 各イベントの発火タイミング計算
-if (priority === 0) {           // カウントダウン
-  fireAt = startAt + timeAt - SPEECH_LEAD;      // 200ms前倒し
-} else if (priority === 1) {    // 回数アナウンス
-  fireAt = startAt + timeAt + AFTER_BEEP;       // BEEP終了後（+350ms）
-} else if (priority === 2) {    // 時間アナウンス
-  fireAt = startAt + timeAt + AFTER_BEEP + STAGGER; // さらに+500ms後
+// 同じtimeAtのイベントはpriority順に並べ、sameTimeIdxを0から数える。
+if (ev.priority === 0) {
+  fireAt = startAt + ev.timeAt - SPEECH_LEAD;
+} else {
+  fireAt = startAt + ev.timeAt + AFTER_BEEP + sameTimeIdx * STAGGER;
 }
 ```
 
@@ -238,7 +235,7 @@ window.speechSynthesis.cancel();           // 読み上げ中のTTSも即座に�
 ```
 
 ### 6.6 数値→英語変換（numToWords）
-- 0〜999 の整数を英語単語に変換
+- 整数と小数第1位に対応。回数の例：80.5 → "eighty point five"
 - 例：80 → "eighty"、76 → "seventy six"、300 → "three hundred"
 
 ---
@@ -342,12 +339,14 @@ color = hsl(hue, 65%, 42%)
 - カウントダウン中は `left: 0%` に固定
 
 ### 9.6 再生情報（#playInfo）
-再生中のみ表示：
+再生中のみ表示する設計（停止後の表示残りは第15節の既知不具合）：
 ```
 現在の回数：80 回/分 (BPM 160)   残り 14.3 秒   セグメント 1 / 3
 ```
 
 ---
+
+グラデーション中の回数・BPM表示にも `jumpsAt()` を使用し、表示値は小数第1位に丸める。
 
 ## 10. セグメント編集UI仕様
 
@@ -355,8 +354,8 @@ color = hsl(hue, 65%, 42%)
 | 項目 | 型 | 範囲 | 備考 |
 |---|---|---|---|
 | 開始（秒） | 数値（読み取り専用） | 自動算出 | 前セグメントの終了と連動 |
-| 終了（秒） | 数値 | 0.1〜300、step=0.1 | 最終セグメントは読み取り専用 |
-| 回数（回/分） | 数値 | 30〜200 | 整数 |
+| 終了（秒） | 数値 | 0.1〜1200、step=0.1 | 最終セグメントは読み取り専用 |
+| 回数（回/分） | 数値 | 30〜200 | 小数第1位、step=0.1 |
 | モード | ボタントグル | step / gradient | |
 
 ### 10.2 セグメント追加
@@ -369,28 +368,14 @@ color = hsl(hue, 65%, 42%)
 
 ---
 
-## 11. MP3エクスポート仕様
+## 11. 設定保存・読み込みと音声ファイル
 
-### 11.1 処理フロー
-1. `OfflineAudioContext` を生成（モノラル 44100Hz）
-2. サイズ = `(cdSec + totalSec + 0.5) × 44100` サンプル
-3. 全ビートをオフラインスケジューリング（`_renderBeatsOffline`）
-4. `startRendering()` で高速レンダリング
-5. Float32 → Int16 変換 → lamejs でMP3エンコード（128kbps、ブロックサイズ1152）
-6. Blob URL → `<a download>` クリックでダウンロード
-
-### 11.2 カウントダウン区間の扱い
-- MP3内では無音（TTS音声はブラウザ依存で埋め込み不可）
-- ビートは `cdSec` 秒後からスケジューリング
-
-### 11.3 出力ファイル仕様
-| 項目 | 値 |
-|---|---|
-| フォーマット | MP3 |
-| サンプルレート | 44100 Hz |
-| ビットレート | 128 kbps |
-| チャンネル | モノラル（1ch） |
-| ファイル名 | `metronome_{totalSec}sec_{min}-{max}.mp3` |
+- 設定変更時にlocalStorageへ自動保存し、次回起動時に読み込む。
+- 保存キー：`jumpRopeMetronome.settings.v1`。設定コードは `JRMS1.` 接頭辞付きのUTF-8 JSON / Base64URL形式。
+- 「設定をコピー」「貼り付けた設定を読み込む」で設定を持ち運べる。
+- 時間アナウンスは入力・保存・読込で1〜1200秒を維持する。全体時間を超える指定は保存したまま、その再生では読み上げない。
+- MP3出力機能・UI・`export.js`・lamejs依存はVer0.17で削除済み。再実装の予定は未定。
+- Windowsの外部録音ツールによる録音ガイドは引き続き表示する。
 
 ---
 
@@ -411,17 +396,17 @@ color = hsl(hue, 65%, 42%)
 
 ```
 Speed_Practice_App/
-├── index.html      # HTMLマークアップ・CDN読み込み
+├── index.html      # HTMLマークアップ・ローカルJS読み込み
 ├── style.css       # 全スタイル・レスポンシブ対応
 ├── i18n.js         # 翻訳辞書（ja/en）・setLang() / t() / getLang()
 ├── app.js          # State管理・UI描画・TTS・RAFループ
 ├── metronome.js    # Web Audio APIエンジン（再生・BEEP・グラデーション）
-└── export.js       # OfflineAudioContext + lamejs によるMP3書き出し
+└── tests/regression.cjs # Nodeによる回帰テスト
 ```
 
 ### 各ファイルの責務
 
-**index.html**：DOM構造、lamejs CDN読み込み、i18n属性付き静的HTML
+**index.html**：DOM構造、i18n属性付き静的HTML
 
 **style.css**：レスポンシブレイアウト、タイムラインバー、トグルスイッチ、カード、アコーディオン、lang-switch
 
@@ -439,7 +424,7 @@ Speed_Practice_App/
 - setTimeout ベースの音声スケジューリング（`_scheduleSpeechWithTimers`）
 - RAFループ（再生位置・再生情報表示のみ、音声発火はsetTimeoutに委譲）
 - iOS音声セッション解除（`_unlockIOSAudioSession`）
-- metronome.js・export.js の呼び出し
+- 設定保存・読み込み、再生中の編集制限、metronome.js の呼び出し
 
 **metronome.js**：
 - AudioContext管理・iOS resume対応（`_ensureCtx`・`_playSilentBuffer`）
@@ -449,22 +434,26 @@ Speed_Practice_App/
 - ステップ・グラデーション両モードのビートスケジューリング
 - 終了BEEPのタイミング補正
 
-**export.js**：
-- OfflineAudioContextでのオーディオレンダリング
-- lamejsを使ったMP3エンコード
-- ダウンロード処理
+**tests/regression.cjs**：音声・DOM・タイマーをモックした回帰テスト。
 
 ---
 
 ## 14. 外部依存
 
-| ライブラリ | バージョン | 用途 | 読み込み方法 |
-|---|---|---|---|
-| lamejs | 1.2.1 | MP3エンコード | CDN（jsDelivr） |
+外部JavaScriptライブラリなし。Web Audio API、Web Speech API、Canvas、localStorageなどのブラウザ標準機能を使用する。
+テストにはNode.jsを使用する。実行時のパッケージインストールは不要。
 
-その他の外部ライブラリは使用しない（バニラJS）。Web Speech APIはブラウザ標準機能を利用。
+## 15. 検証結果と既知の不具合（2026-09-08）
+
+- `node --test tests/regression.cjs`：9件成功。終了BEEP予約時刻、音源停止、古い終了・開始処理の無効化、設定分離、編集ロック、保存往復、補間表示、MP3削除を確認。
+- JavaScript構文チェックと `git diff --check`：成功。
+- [公開ページ](https://ok-rope.github.io/Speed_Practice_App/)をChromeで確認：Ver0.17、MP3 UI削除、再生中の編集制限、言語切替後の制限維持、停止・再再生、10秒の自然終了、グラデーション表示の変化、全体時間を超えるアナウンス設定の再読込後の維持。
+- 確認操作中にコンソールのerror/warnを検出せず。検証用に変更した設定は元に復元した。
+- 終了BEEPのミリ秒単位の実音精度、iOS/Android実機動作は未検証。モックテストの予約時刻確認と実音計測を区別する。
+
+**既知の不具合（保留）**：停止後も `#playInfo` のBPM・残り時間・セグメント表示が残る。`hidden=true` に対して `.play-info` の `display: flex` が優先されるため。Chromeで確認済み。ユーザー判断により今回は修正せず、現状で一区切りとする。
 
 ---
 
-*仕様書バージョン: 3.0*  
-*更新日: 2026-05-10*
+*仕様書バージョン: 3.1 / アプリ: Ver0.17*
+*更新日: 2026-09-08*
